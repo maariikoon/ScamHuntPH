@@ -18,9 +18,11 @@ export default function Login() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      console.log("✅ User logged in:", userCredential.user.email); // <-- logs to terminal
       router.replace("/learn"); // ✅ go to tabs after success
     } catch (error) {
       console.error("Login error:", error);
+      console.log("❌ Login failed:", error.message); // <-- logs error to terminal
       Alert.alert("Login Failed", error.message);
     }
   };

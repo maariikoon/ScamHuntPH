@@ -12,23 +12,23 @@ export default function Signup() {
   const router = useRouter();
 
   const handleSignup = async () => {
-    if (!email || !password || !confirmPassword) {
-      Alert.alert("Error", "Please fill in all fields.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match.");
-      return;
-    }
+  if (!email || !password || !confirmPassword) {
+    Alert.alert("Error", "Please fill in all fields.");
+    return;
+  }
+  if (password !== confirmPassword) {
+    Alert.alert("Error", "Passwords do not match.");
+    return;
+  }
 
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      // ✅ Firebase automatically signs the user in
-      router.replace("/learn");
-    } catch (error) {
-      console.error("Signup error:", error);
-      Alert.alert("Signup Failed", error.message);
-    }
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password); // <-- assign result
+    console.log("✅ New user created:", userCredential.user.email); // <-- works now
+    router.replace("/learn"); // go to tabs after signup
+  } catch (error) {
+    console.error("Signup error:", error.message); // log error to terminal
+    Alert.alert("Signup Failed", error.message);
+  }
   };
 
   return (
