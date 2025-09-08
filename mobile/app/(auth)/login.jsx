@@ -11,21 +11,20 @@ export default function Login() {
   const router = useRouter();
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields.");
-      return;
-    }
+  if (!email || !password) {
+    Alert.alert("Error", "Please fill in all fields.");
+    return;
+  }
 
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log("✅ User logged in:", userCredential.user.email); // <-- logs to terminal
-      router.replace("/learn"); // ✅ go to tabs after success
-    } catch (error) {
-      console.error("Login error:", error);
-      console.log("❌ Login failed:", error.message); // <-- logs error to terminal
-      Alert.alert("Login Failed", error.message);
-    }
-  };
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+    console.log("✅ User logged in:", userCredential.user.email); // <-- logs to terminal
+    router.replace("/learn"); // navigate to tabs
+  } catch (error) {
+    console.error("❌ Login failed:", error.message); // <-- logs error to terminal
+    Alert.alert("Login Failed", error.message);
+  }
+};
 
   return (
     <SafeAreaView style={styles.container}>
