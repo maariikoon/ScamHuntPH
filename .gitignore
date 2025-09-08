@@ -1,0 +1,56 @@
+cat > .gitignore <<'EOF'
+# macOS
+.DS_Store
+
+# Node / package managers
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Builds / dist
+dist/
+build/
+coverage/
+tmp/
+logs/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+web-build/
+android/.gradle/
+android/app/build/
+android/app/release/
+ios/build/
+ios/Pods/
+*.xcworkspace
+*.xcuserdata/
+DerivedData/
+
+# Env & secrets (DO NOT COMMIT)
+.env
+.env.*
+firebase-service-account.json
+serviceAccount*.json
+google-services.json
+GoogleService-Info.plist
+*.keystore
+*.jks
+*.p8
+*.p12
+*.pem
+*.key
+*.mobileprovision
+
+# VS Code (keep shared settings if you want)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+
+# OS
+Thumbs.db
+EOF
