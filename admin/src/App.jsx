@@ -1,35 +1,31 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from './firebase';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [email, setEmail] = useState('admin@example.com');
+  const [password, setPassword] = useState('Passw0rd!');
+  const [msg, setMsg] = useState('');
+
+  const login = async (e) => {
+    e.preventDefault();
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      setMsg('Logged in ✅ (Week 1 shell)');
+    } catch (e) {
+      setMsg(String(e));
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div style={{maxWidth: 360, margin: '48px auto', display:'grid', gap:12}}>
+      <h2>Admin Login</h2>
+      <form onSubmit={login} style={{display:'grid', gap:8}}>
+        <input placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} />
+        <input placeholder="Password" type="password" value={password} onChange={e=>setPassword(e.target.value)} />
+        <button type="submit">Sign in</button>
+      </form>
+      <div style={{fontStyle:'italic'}}>{msg}</div>
+    </div>
+  );
 }
-
-export default App
