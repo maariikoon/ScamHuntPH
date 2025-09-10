@@ -3,7 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 export const firebaseApp = initializeApp({
-    apiKey: "AIzaSyAuUlRq4JDTlvgMNkOm3oHfWJKp3ML_wjY",
+  apiKey: "AIzaSyAuUlRq4JDTlvgMNkOm3oHfWJKp3ML_wjY",
   authDomain: "scamhuntph-b3485.firebaseapp.com",
   projectId: "scamhuntph-b3485",
   storageBucket: "scamhuntph-b3485.firebasestorage.app",
