@@ -3,7 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../src/firebase"; // ✅ adjust if needed
+import { auth } from "../../src/firebase"; // ✅ adjust path if needed
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -11,20 +11,21 @@ export default function Login() {
   const router = useRouter();
 
   const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert("Error", "Please fill in all fields.");
-    return;
-  }
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill in all fields.");
+      console.log("⚠️ Login attempt failed: Missing email or password");
+      return;
+    }
 
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
-    console.log("✅ User logged in:", userCredential.user.email); // <-- logs to terminal
-    router.replace("/learn"); // navigate to tabs
-  } catch (error) {
-    console.error("❌ Login failed:", error.message); // <-- logs error to terminal
-    Alert.alert("Login Failed", error.message);
-  }
-};
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      console.log("✅ User logged in:", userCredential.user.email);
+      router.replace("/learn"); // redirect to Learn tab
+    } catch (error) {
+      console.error("❌ Login failed:", error.message);
+      Alert.alert("Login Failed", error.message);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -51,7 +52,7 @@ export default function Login() {
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
+      <TouchableOpacity onPress={() => router.replace("/(auth)/signup")}>
         <Text style={styles.link}>Don't have an account? Sign up</Text>
       </TouchableOpacity>
     </SafeAreaView>

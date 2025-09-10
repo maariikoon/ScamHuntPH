@@ -3,7 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../src/firebase"; // adjust path if needed
+import { auth } from "../../src/firebase";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
@@ -12,23 +12,25 @@ export default function Signup() {
   const router = useRouter();
 
   const handleSignup = async () => {
-  if (!email || !password || !confirmPassword) {
-    Alert.alert("Error", "Please fill in all fields.");
-    return;
-  }
-  if (password !== confirmPassword) {
-    Alert.alert("Error", "Passwords do not match.");
-    return;
-  }
+    if (!email || !password || !confirmPassword) {
+      Alert.alert("Error", "Please fill in all fields.");
+      console.log("⚠️ Signup attempt failed: Missing fields");
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Passwords do not match.");
+      console.log("⚠️ Signup attempt failed: Passwords do not match");
+      return;
+    }
 
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password); // <-- assign result
-    console.log("✅ New user created:", userCredential.user.email); // <-- works now
-    router.replace("/learn"); // go to tabs after signup
-  } catch (error) {
-    console.error("Signup error:", error.message); // log error to terminal
-    Alert.alert("Signup Failed", error.message);
-  }
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      console.log("✅ New user created:", userCredential.user.email);
+      router.replace("/learn"); // redirect to Learn tab
+    } catch (error) {
+      console.error("❌ Signup failed:", error.message);
+      Alert.alert("Signup Failed", error.message);
+    }
   };
 
   return (

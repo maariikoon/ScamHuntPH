@@ -54,3 +54,6 @@ GoogleService-Info.plist
 # OS
 Thumbs.db
 EOF
+
+backend\firebase-service-account.json
+backend/firebase-service-account.json
