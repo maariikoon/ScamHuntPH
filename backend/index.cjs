@@ -1,10 +1,8 @@
-// index.cjs
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 require('dotenv').config();
 
-// Add Firestore admin SDK
 const admin = require('firebase-admin');
 const serviceAccount = require('./firebase-service-account.json');
 admin.initializeApp({
@@ -12,15 +10,18 @@ admin.initializeApp({
 });
 const db = admin.firestore();
 
+// Enable ignoring undefined values
+db.settings({ ignoreUndefinedProperties: true });
+
 const app = express();
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// health route
+// Health-check route
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// POST /reports: create and store in Firestore
+// POST /reports: store reports in Firestore
 app.post('/reports', async (req, res) => {
   const { messageText, sender, severity, evidenceUrls } = req.body;
 
@@ -32,11 +33,11 @@ app.post('/reports', async (req, res) => {
     const docRef = await db.collection('reports').add({
       messageText,
       sender,
-      severity,
+      severity,      // If undefined, Firestore will skip it now
       evidenceUrls,
       status: 'pending',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      userId: req.user?.uid || null // if you verify auth
+      userId: req.user?.uid || null
     });
 
     return res.json({ ok: true, id: docRef.id });
@@ -46,7 +47,7 @@ app.post('/reports', async (req, res) => {
   }
 });
 
-// Fallback to handle undefined routes
+// Handle undefined routes gracefully
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
