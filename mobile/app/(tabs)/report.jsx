@@ -9,6 +9,9 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
+
+const API_BASE = Constants.expoConfig.extra.API_BASE;
 
 export default function Report() {
   const [message, setMessage] = useState("");
@@ -41,8 +44,9 @@ export default function Report() {
           type: "image/jpeg",
           name: "evidence.jpg",
         });
-                                      //change this IP address
-        const uploadRes = await fetch("http://192.168.1.12:4000/uploads/evidence", {
+        
+                                     
+        const uploadRes = await fetch(`${API_BASE}/reports`, {
           method: "POST",
           headers: { "Content-Type": "multipart/form-data" },
           body: formData,
@@ -51,8 +55,8 @@ export default function Report() {
         evidenceUrl = uploadJson.url;
         console.log("✅ Evidence uploaded:", evidenceUrl);
       }
-                                      //change this IP address
-      const response = await fetch("http://192.168.1.12:4000/reports", {
+                                      
+      const response = await fetch(`${API_BASE}/reports`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
