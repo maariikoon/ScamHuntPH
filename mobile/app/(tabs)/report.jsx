@@ -55,11 +55,12 @@ export default function Report() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messageText: message,
+          message,   // ✅ fixed
           sender,
           evidenceUrls: evidenceUrl ? [evidenceUrl] : [],
         }),
       });
+
 
       const text = await response.text();
       console.log("Raw server response:", text);
