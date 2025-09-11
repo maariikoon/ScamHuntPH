@@ -1,9 +1,20 @@
 import { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from '@/firebase';
 import { useNavigate } from '@tanstack/react-router';
-import { Card, TextInput, PasswordInput, Button, Title, Text, Stack, Group, List, ThemeIcon } from '@mantine/core';
+import {
+  Card, TextInput, PasswordInput, Button, Title, Text, Stack, Group, ThemeIcon
+} from '@mantine/core';
 import { IconLock, IconShieldCheck, IconEye } from '@tabler/icons-react';
+
+function friendlyError(err: unknown): string {
+  const msg = String((err instanceof Error && err.message) || err);
+  if (msg.includes('auth/invalid-credential')) return 'Invalid email or password.';
+  if (msg.includes('auth/user-not-found')) return 'Account not found.';
+  if (msg.includes('auth/wrong-password')) return 'Incorrect password.';
+  if (msg.includes('auth/too-many-requests')) return 'Too many attempts. Try again later.';
+  return msg.replace(/^Firebase:\s*/i, '').replace(/\s*\(auth\/[a-z0-9-]+\)\.?$/i, '').trim();
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -15,75 +26,91 @@ export default function Login() {
 
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      await signInWithEmailAndPassword(auth, email.trim(), password);
-      navigate({ to: '/admin' });
-    } catch (e: unknown) {
-      if (e instanceof Error) {
-        setError(e.message);
+      const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const token = await cred.user.getIdTokenResult(true); // refresh to get latest claims
+      if (token.claims?.role === 'admin') {
+        navigate({ to: '/admin' });
       } else {
-        setError(String(e));
+        await signOut(auth);
+        setError("Your account doesn't have admin access yet.");
       }
+    } catch (e) {
+      setError(friendlyError(e));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#f7f9fc', padding: 16 }}>
-      <Card withBorder radius="lg" p="xl" style={{ width: 520 }} className="card-shadow">
-        <Stack>
-          <Group>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        background: '#f7f9fc',
+        padding: 16,
+      }}
+    >
+      <Card
+        withBorder
+        radius="lg"
+        p="xl"
+        // Responsive, perfectly centered card
+        style={{
+          width: 'min(92vw, 480px)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+          background: '#fff',
+        }}
+      >
+        <Stack gap="lg">
+          <Group gap="sm">
             <ThemeIcon size="lg" radius="xl" variant="light"><IconShieldCheck /></ThemeIcon>
             <div>
-              <Title order={2}>Admin Access</Title>
-              <Text c="dimmed">ScamHuntPH System Administration</Text>
+              <Title order={2} style={{ fontWeight: 800, fontSize: 28, lineHeight: 1.2 }}>
+                Admin Access
+              </Title>
+              <Text c="dimmed" style={{ fontSize: 14 }}>
+                Sign in to the ScamHuntPH dashboard
+              </Text>
             </div>
           </Group>
 
           <form onSubmit={doLogin}>
-            <Stack>
+            <Stack gap="md">
               <TextInput
-                label="Administrator Email"
+                size="md"
+                label={<Text style={{ fontSize: 13, fontWeight: 600 }}>Administrator Email</Text>}
                 placeholder="admin@scamhuntph.gov.ph"
                 value={email}
                 onChange={(e) => setEmail(e.currentTarget.value)}
+                required
+                autoComplete="username"
               />
               <PasswordInput
-                label="Password"
+                size="md"
+                label={<Text style={{ fontSize: 13, fontWeight: 600 }}>Password</Text>}
                 placeholder="Enter your admin password"
                 value={password}
                 onChange={(e) => setPassword(e.currentTarget.value)}
                 visibilityToggleIcon={({ reveal }) => (reveal ? <IconEye /> : <IconLock />)}
                 visible={visible}
                 onVisibilityChange={setVisible}
+                required
+                autoComplete="current-password"
               />
-              <Button type="submit" size="md" loading={loading}>
+              <Button type="submit" size="md" loading={loading} disabled={loading} fullWidth>
                 Access Admin Dashboard
               </Button>
-              {error && <Text c="red">{error}</Text>}
+              {error && <Text c="red" style={{ fontSize: 13 }}>{error}</Text>}
             </Stack>
           </form>
 
-          <Card withBorder radius="md" p="md" bg="gray.0">
-            <Text fw={600}>Security Features:</Text>
-            <List spacing="xs" size="sm" mt="xs">
-              <List.Item icon={<ThemeIcon size={18} radius="xl" variant="light"><IconLock size={14} /></ThemeIcon>}>
-                Role-based access control (RBAC)
-              </List.Item>
-              <List.Item icon={<ThemeIcon size={18} radius="xl" variant="light"><IconLock size={14} /></ThemeIcon>}>
-                AES-256 encryption
-              </List.Item>
-              <List.Item icon={<ThemeIcon size={18} radius="xl" variant="light"><IconLock size={14} /></ThemeIcon>}>
-                OWASP compliance
-              </List.Item>
-              <List.Item icon={<ThemeIcon size={18} radius="xl" variant="light"><IconLock size={14} /></ThemeIcon>}>
-                Audit logging enabled
-              </List.Item>
-            </List>
-          </Card>
+          <Text ta="center" c="dimmed" style={{ fontSize: 12 }}>
+            Need access? Ask an owner to grant <Text span fw={600}>role: "admin"</Text>.
+          </Text>
         </Stack>
       </Card>
     </div>

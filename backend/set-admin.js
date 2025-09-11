@@ -1,32 +1,25 @@
 // set-admin.js
-const admin = require('firebase-admin');
-const serviceAccount = require('./firebase-adminsdk.json');
+const admin = require("firebase-admin");
+const serviceAccount = require("./firebase-adminsdk.json"); // your service account key
 
-// Initialize admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
 async function main() {
-  // Option A: use email
-  const email = 'admin@admin.com';
-
-  // Option B: use UID (safer if you already have it)
-  const uid = 'VgpzPPtY0zU6SCaH2hDkvgOU9Wj1';
-
   try {
-    // You can pick one of the two lines below:
-    // const user = await admin.auth().getUserByEmail(email);
-    const user = await admin.auth().getUser(uid);
+    // Fetch user by email
+    const user = await admin.auth().getUserByEmail("admin@scamhuntph.gov.ph");
 
-    // Add a custom claim (role)
-    await admin.auth().setCustomUserClaims(user.uid, { role: 'admin' });
+    // Add custom claim "role: admin"
+    await admin.auth().setCustomUserClaims(user.uid, { role: "admin" });
 
     console.log(`✅ Role 'admin' set for user: ${user.email} (UID: ${user.uid})`);
+    process.exit(0);
   } catch (err) {
-    console.error('❌ Error setting role:', err);
+    console.error("❌ Error setting role:", err);
+    process.exit(1);
   }
 }
 
 main();
-

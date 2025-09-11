@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 
 export default function App() {
@@ -13,10 +13,16 @@ export default function App() {
 
   const niceError = (err: FirebaseErr | unknown): string => {
     const s = String((err as FirebaseErr)?.message || err);
-    return s
+    const cleaned = s
       .replace(/^Firebase:\s*/i, '')
       .replace(/\s*\(auth\/[a-z0-9-]+\)\.?$/i, '')
       .trim();
+
+    if (/invalid-credential/i.test(s)) return 'Invalid email or password.';
+    if (/user-not-found/i.test(s)) return 'Account not found.';
+    if (/wrong-password/i.test(s)) return 'Incorrect password.';
+    if (/too-many-requests/i.test(s)) return 'Too many attempts. Try again later.';
+    return cleaned;
   };
 
   const login = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -24,10 +30,25 @@ export default function App() {
     setMsg('');
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
-      setMsg('Logged in ✅ (Week 1 shell)');
-      // TODO: navigate to your dashboard, e.g. with react-router or tanstack router
-      // navigate('/admin');
+      // 1) Sign in
+      const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+
+      // 2) Force-refresh token to get latest custom claims
+      const token = await cred.user.getIdTokenResult(true);
+      interface CustomClaims {
+        role?: string;
+      }
+      const role = (token.claims as CustomClaims)?.role;
+
+      // 3) Gate by role
+      if (role === 'admin') {
+        setMsg('Logged in ✔ Admin access granted.');
+        // TODO: navigate to your admin dashboard (e.g., with TanStack Router or React Router)
+        // navigate('/admin');
+      } else {
+        await signOut(auth);
+        setMsg("Your account doesn't have admin access yet. Ask an owner to set your role, then sign in again.");
+      }
     } catch (err) {
       setMsg(niceError(err));
     } finally {
@@ -35,7 +56,7 @@ export default function App() {
     }
   };
 
-  // Reusable input style (full width + box-sizing)
+  // Reusable input style
   const inputBase: React.CSSProperties = {
     width: '100%',
     boxSizing: 'border-box',
@@ -91,10 +112,10 @@ export default function App() {
           <input
             id="email"
             type="email"
-            placeholder="you@example.com"
+            placeholder="admin@scamhuntph.gov.ph"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
+            autoComplete="username"
             inputMode="email"
             required
             autoFocus
@@ -180,7 +201,7 @@ export default function App() {
             marginTop: 12,
             textAlign: 'center',
             wordBreak: 'break-word',
-            color: msg.startsWith('Logged in') ? '#065f46' : '#374151',
+            color: /admin access granted/i.test(msg) ? '#065f46' : '#374151',
             minHeight: 20,
           }}
         >
@@ -196,7 +217,7 @@ export default function App() {
             color: '#6b7280',
           }}
         >
-          Having trouble? Make sure the admin user exists in Firebase Auth.
+          Having trouble? Ensure the user exists and has the admin role in Firebase Auth.
         </div>
       </div>
     </div>
