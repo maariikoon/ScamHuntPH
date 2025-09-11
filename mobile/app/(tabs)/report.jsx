@@ -41,6 +41,7 @@ export default function Report() {
           type: "image/jpeg",
           name: "evidence.jpg",
         });
+                                      //change this IP address
         const uploadRes = await fetch("http://192.168.1.12:4000/uploads/evidence", {
           method: "POST",
           headers: { "Content-Type": "multipart/form-data" },
@@ -50,12 +51,12 @@ export default function Report() {
         evidenceUrl = uploadJson.url;
         console.log("✅ Evidence uploaded:", evidenceUrl);
       }
-
+                                      //change this IP address
       const response = await fetch("http://192.168.1.12:4000/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message,   // ✅ fixed
+          message,   
           sender,
           evidenceUrls: evidenceUrl ? [evidenceUrl] : [],
         }),
