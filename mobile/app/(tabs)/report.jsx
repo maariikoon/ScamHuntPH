@@ -9,13 +9,15 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import Constants from "expo-constants";
+import { Picker } from "@react-native-picker/picker";
 
 const API_BASE_URL = "https://api-bcvrqgcc6a-uc.a.run.app";
 
 export default function Report() {
   const [message, setMessage] = useState("");
   const [sender, setSender] = useState("");
+  const [category, setCategory] = useState("Phishing");
+  const [region, setRegion] = useState("NCR");
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -28,8 +30,8 @@ export default function Report() {
   };
 
   const handleSubmit = async () => {
-    if (!message.trim()) {
-      Alert.alert("Error", "Message is required.");
+    if (!message.trim() || !sender.trim()) {
+      Alert.alert("Error", "Sender and Message are required.");
       return;
     }
     setLoading(true);
@@ -37,6 +39,7 @@ export default function Report() {
     try {
       let evidenceUrl = null;
 
+      // Upload screenshot first if provided
       if (image) {
         const formData = new FormData();
         formData.append("file", {
@@ -44,9 +47,8 @@ export default function Report() {
           type: "image/jpeg",
           name: "evidence.jpg",
         });
-        
-                                     
-        const uploadRes = await fetch(`${API_BASE_URL}/reports`, {
+
+        const uploadRes = await fetch(`${API_BASE_URL}/reports/upload`, {
           method: "POST",
           headers: { "Content-Type": "multipart/form-data" },
           body: formData,
@@ -55,17 +57,21 @@ export default function Report() {
         evidenceUrl = uploadJson.url;
         console.log("✅ Evidence uploaded:", evidenceUrl);
       }
-                                      
+
+      // Send report data
       const response = await fetch(`${API_BASE_URL}/reports`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message,   
           sender,
+          message,
+          category,
+          region,
           evidenceUrls: evidenceUrl ? [evidenceUrl] : [],
+          status: "pending", // auto
+          createdAt: new Date().toISOString(), // fallback, backend can override with serverTimestamp
         }),
       });
-
 
       const text = await response.text();
       console.log("Raw server response:", text);
@@ -75,16 +81,18 @@ export default function Report() {
         console.log("Parsed JSON:", reportJson);
 
         if (response.ok) {
-          Alert.alert("Success", "Report submitted for review.");
+          Alert.alert("✅ Success", "Report submitted for review.");
           setMessage("");
           setSender("");
+          setCategory("Phishing");
+          setRegion("NCR");
           setImage(null);
         } else {
           throw new Error(reportJson.error || "Failed to submit report");
         }
       } catch (err) {
         console.error("JSON parse failed:", err, "\nRaw response:", text);
-        Alert.alert("Server Error", "Invalid response from the server. Check console logs.");
+        Alert.alert("Server Error", "Invalid response from the server.");
       }
     } catch (err) {
       console.error("❌ Report error:", err.message);
@@ -100,18 +108,45 @@ export default function Report() {
 
       <TextInput
         style={styles.input}
+        placeholder="Sender (phone/email)"
+        value={sender}
+        onChangeText={setSender}
+      />
+
+      <TextInput
+        style={styles.input}
         placeholder="Paste scam message here..."
         multiline
         value={message}
         onChangeText={setMessage}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Sender (phone/email)"
-        value={sender}
-        onChangeText={setSender}
-      />
+      <Text style={styles.label}>Select Category</Text>
+      <Picker
+        selectedValue={category}
+        style={styles.picker}
+        onValueChange={(itemValue) => setCategory(itemValue)}
+      >
+        <Picker.Item label="Phishing" value="Phishing" />
+        <Picker.Item label="Spoofing (Fake GCash)" value="Spoofing" />
+        <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
+        <Picker.Item label="Fake Job" value="Fake Job" />
+        <Picker.Item label="Loan Scam" value="Loan Scam" />
+        <Picker.Item label="Investment Scam" value="Investment Scam" />
+        <Picker.Item label="Others" value="Others" />
+      </Picker>
+
+      <Text style={styles.label}>Select Region</Text>
+      <Picker
+        selectedValue={region}
+        style={styles.picker}
+        onValueChange={(itemValue) => setRegion(itemValue)}
+      >
+        <Picker.Item label="NCR" value="NCR" />
+        <Picker.Item label="Luzon" value="Luzon" />
+        <Picker.Item label="Visayas" value="Visayas" />
+        <Picker.Item label="Mindanao" value="Mindanao" />
+      </Picker>
 
       <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
         <Ionicons name="image-outline" size={20} color="#007AFF" />
@@ -139,6 +174,11 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1, borderColor: "#ccc", borderRadius: 8,
     padding: 12, marginBottom: 12
+  },
+  label: { fontSize: 16, fontWeight: "600", marginTop: 10 },
+  picker: {
+    borderWidth: 1, borderColor: "#ccc", borderRadius: 8,
+    marginBottom: 12
   },
   button: {
     backgroundColor: "#007AFF", padding: 15,

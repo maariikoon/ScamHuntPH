@@ -2,6 +2,8 @@ const functions = require("firebase-functions");
 const express = require("express");
 const admin = require("firebase-admin");
 const cors = require("cors");
+const {v4: uuidv4} = require("uuid");
+
 
 const app = express();
 app.use(cors({origin: true}));
@@ -14,7 +16,8 @@ const db = admin.firestore();
 // 🔹 POST /reports
 app.post("/reports", async (req, res) => {
   try {
-    const {sender, message, evidenceUrls} = req.body;
+    const {sender, message, evidenceUrls, category, region} = req.body;
+
 
     if (!sender || !message) {
       return res.status(400).json({error: "Sender and message are required"});
@@ -29,14 +32,16 @@ app.post("/reports", async (req, res) => {
       reportNumber = counterDoc.data().count + 1;
     }
 
-    const reportId = `report_${reportNumber}`;
+    const reportId = uuidv4();
 
     // 🔹 Save report with default status "pending"
     await db.collection("reports").doc(reportId).set({
       sender,
       message,
       evidenceUrls: evidenceUrls || [],
-      status: "pending", // ✅ new field
+      category: category || "Others", // ✅ default
+      region: region || "N/A", // ✅ default
+      status: "pending", // admin will change later
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
