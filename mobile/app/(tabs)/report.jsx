@@ -11,7 +11,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 
-const API_BASE = Constants.expoConfig.extra.API_BASE;
+const API_BASE_URL = "https://api-bcvrqgcc6a-uc.a.run.app";
 
 export default function Report() {
   const [message, setMessage] = useState("");
@@ -46,7 +46,7 @@ export default function Report() {
         });
         
                                      
-        const uploadRes = await fetch(`${API_BASE}/reports`, {
+        const uploadRes = await fetch(`${API_BASE_URL}/reports`, {
           method: "POST",
           headers: { "Content-Type": "multipart/form-data" },
           body: formData,
@@ -56,7 +56,7 @@ export default function Report() {
         console.log("✅ Evidence uploaded:", evidenceUrl);
       }
                                       
-      const response = await fetch(`${API_BASE}/reports`, {
+      const response = await fetch(`${API_BASE_URL}/reports`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
