@@ -1,0 +1,9 @@
+{
+    "thresholds": {
+      "spikePerHour": 25,
+      "sameSenderPer15m": 5
+    },
+    "enabled": true,
+    "checkEveryMinutes": 5
+  }
+  

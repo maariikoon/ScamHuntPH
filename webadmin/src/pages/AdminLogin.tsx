@@ -1,28 +1,34 @@
+// src/pages/AdminLogin.tsx
 import { useState } from 'react';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth } from '@/firebase';
 import { useNavigate } from '@tanstack/react-router';
 import {
-  Card, TextInput, PasswordInput, Button, Title, Text, Stack, Group, ThemeIcon
+  Card, TextInput, PasswordInput, Button, Title, Text, Stack, Group, ThemeIcon, Alert,
 } from '@mantine/core';
 import { IconLock, IconShieldCheck, IconEye } from '@tabler/icons-react';
+import { auth } from '@/firebase';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
 function friendlyError(err: unknown): string {
-  const msg = String((err instanceof Error && err.message) || err);
-  if (msg.includes('auth/invalid-credential')) return 'Invalid email or password.';
-  if (msg.includes('auth/user-not-found')) return 'Account not found.';
-  if (msg.includes('auth/wrong-password')) return 'Incorrect password.';
-  if (msg.includes('auth/too-many-requests')) return 'Too many attempts. Try again later.';
-  return msg.replace(/^Firebase:\s*/i, '').replace(/\s*\(auth\/[a-z0-9-]+\)\.?$/i, '').trim();
+  const e = err as { code?: string; message?: string };
+  const code = e?.code || '';
+  const msg = e?.message || '';
+
+  if (/auth\/invalid-email/.test(code)) return 'Please enter a valid email.';
+  if (/auth\/user-disabled/.test(code)) return 'Your admin account is disabled.';
+  if (/auth\/invalid-credential|auth\/wrong-password/.test(code)) return 'Invalid email or password.';
+  if (/auth\/too-many-requests/.test(code)) return 'Too many attempts. Try again later.';
+  if (/auth\/user-not-found/.test(code)) return 'Account not found.';
+  if (/network/i.test(msg)) return 'Network error. Check your connection.';
+  return (msg || 'Sign-in failed').replace(/^Firebase:\s*/i, '').trim();
 }
 
-export default function Login() {
+export default function AdminLogin() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('admin@scamhuntph.gov.ph');
-  const [password, setPassword] = useState('Passw0rd!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [visible, setVisible] = useState(false);
 
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,12 +36,21 @@ export default function Login() {
     setLoading(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const token = await cred.user.getIdTokenResult(true); // refresh to get latest claims
-      if (token.claims?.role === 'admin') {
-        navigate({ to: '/admin' });
+      // Refresh claims so new promotions take effect immediately
+      const tok = await cred.user.getIdTokenResult(true);
+      const role = (tok.claims.role as string | undefined) || null;
+      const mustChange = Boolean(tok.claims.mustChange);
+
+      if (role === 'admin' || role === 'superadmin') {
+        if (mustChange) {
+          navigate({ to: '/admin/change-password' });
+        } else {
+          navigate({ to: '/admin' });
+        }
       } else {
+        // Not an admin → deny and sign out
         await signOut(auth);
-        setError("Your account doesn't have admin access yet.");
+        setError('This account is not authorized for the Admin Dashboard.');
       }
     } catch (e) {
       setError(friendlyError(e));
@@ -58,7 +73,6 @@ export default function Login() {
         withBorder
         radius="lg"
         p="xl"
-        // Responsive, perfectly centered card
         style={{
           width: 'min(92vw, 480px)',
           boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
@@ -77,6 +91,8 @@ export default function Login() {
               </Text>
             </div>
           </Group>
+
+          {error && <Alert color="red">{error}</Alert>}
 
           <form onSubmit={doLogin}>
             <Stack gap="md">
@@ -104,12 +120,11 @@ export default function Login() {
               <Button type="submit" size="md" loading={loading} disabled={loading} fullWidth>
                 Access Admin Dashboard
               </Button>
-              {error && <Text c="red" style={{ fontSize: 13 }}>{error}</Text>}
             </Stack>
           </form>
 
           <Text ta="center" c="dimmed" style={{ fontSize: 12 }}>
-            Need access? Ask an owner to grant <Text span fw={600}>role: "admin"</Text>.
+            Need access? Ask a superadmin to grant your role.
           </Text>
         </Stack>
       </Card>

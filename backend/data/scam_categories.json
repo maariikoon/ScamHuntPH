@@ -1,0 +1,17 @@
+{
+    "categories": [
+      "gcash_scam",
+      "phishing",
+      "delivery_fraud",
+      "investment_scam",
+      "loan_scam",
+      "identity_theft",
+      "other"
+    ],
+    "regions": [
+      "NCR","CAR","Region I","Region II","Region III","Region IV-A","MIMAROPA",
+      "Region V","Region VI","Region VII","Region VIII","Region IX","Region X",
+      "Region XI","Region XII","Region XIII","BARMM","N/A"
+    ]
+  }
+  

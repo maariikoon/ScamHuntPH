@@ -1,83 +1,164 @@
-import * as React from 'react';
+// src/router.tsx
+import * as React from "react";
 import {
-  createRootRouteWithContext,
+  createRootRoute,
   createRoute,
   createRouter,
   Outlet,
   RouterProvider,
   redirect,
-} from '@tanstack/react-router';
-import type { User } from 'firebase/auth';
-import Login from '@/pages/Login';
-import AdminLayout from '@/layouts/AdminLayout';
-import Dashboard from '@/pages/Dashboard';
-import Reports from '@/pages/Reports';
-import Analytics from '@/pages/Analytics';
-import Users from '@/pages/Users';
-import Content from '@/pages/Content';
-import Security from '@/pages/Security';
+} from "@tanstack/react-router";
+import {onAuthStateChanged} from "firebase/auth";
+import {auth} from "@/firebase";
+import {getFirestore, doc, getDoc} from "firebase/firestore";
 
-type RouterCtx = { user: User | null };
+import AdminLogin from "@/pages/AdminLogin";
+import AdminLayout from "@/layouts/AdminLayout";
+import Dashboard from "@/pages/Dashboard";
+import Reports from "@/pages/Reports";
+import Analytics from "@/pages/Analytics";
+import Users from "@/pages/Users";
+import Content from "@/pages/Content";
+import Security from "@/pages/Security";
 
-const rootRoute = createRootRouteWithContext<RouterCtx>()({
-  component: () => <Outlet />,
-});
+/** Wait for Firebase Auth to settle and return the user (or null). */
+function authReady(): Promise<import("firebase/auth").User | null> {
+  return new Promise((resolve) => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      unsub();
+      resolve(u);
+    });
+  });
+}
 
-/** Redirect "/" → /admin if admin, else /login */
-const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/',
-  beforeLoad: async ({ context }) => {
-    const u = context.user;
-    if (u) {
-      const token = await u.getIdTokenResult(true);
-      if (token.claims?.role === 'admin') {
-        throw redirect({ to: '/admin' });
+// Read current auth state + claims (supports admin claim + role claim + Firestore allow-list)
+async function getAuthState() {
+  const u = await authReady();
+  if (!u) {
+    return {
+      authed: false as const,
+      isAdmin: false,
+      role: null as string | null,
+      mustChange: false,
+    };
+  }
+
+  try {
+    // refresh so the newest custom claims are present
+    const token = await u.getIdTokenResult(true);
+    const claims = token.claims || {};
+    const role = (claims.role as string | undefined) ?? null;
+    const mustChange = Boolean(claims.mustChange);
+    let isAdmin = claims.admin === true || role === "admin" || role === "superadmin";
+
+    // Firestore fallback: /admins/<uid> {active:true}
+    if (!isAdmin) {
+      const db = getFirestore();
+      const snap = await getDoc(doc(db, "admins", u.uid));
+      if (snap.exists() && snap.data()?.active === true) {
+        isAdmin = true;
       }
     }
-    throw redirect({ to: '/login' });
+
+    return {authed: true as const, isAdmin, role, mustChange};
+  } catch {
+    return {authed: false as const, isAdmin: false, role: null, mustChange: false};
+  }
+}
+
+const rootRoute = createRootRoute({component: () => <Outlet />});
+
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  beforeLoad: async () => {
+    const {authed, isAdmin, mustChange} = await getAuthState();
+    if (!authed) throw redirect({to: "/login", replace: true});
+    if (isAdmin) {
+      if (mustChange) throw redirect({to: "/admin/change-password", replace: true});
+      throw redirect({to: "/admin", replace: true});
+    }
+    throw redirect({to: "/login", replace: true});
   },
 });
 
-// If already admin, skip /login
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/login',
-  component: Login,
-  beforeLoad: async ({ context }) => {
-    const u = context.user;
-    if (!u) return;
-    const token = await u.getIdTokenResult(true);
-    if (token.claims?.role === 'admin') throw redirect({ to: '/admin' });
+  path: "/login",
+  component: AdminLogin,
+  beforeLoad: async () => {
+    const {authed, isAdmin, mustChange} = await getAuthState();
+    if (authed && isAdmin) {
+      if (mustChange) throw redirect({to: "/admin/change-password", replace: true});
+      throw redirect({to: "/admin", replace: true});
+    }
   },
 });
 
-// /admin requires role: admin
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/admin',
+  path: "/admin",
   component: AdminLayout,
-  beforeLoad: async ({ context }) => {
-    const u = context.user;
-    if (!u) throw redirect({ to: '/login' });
-    const token = await u.getIdTokenResult(true);
-    if (token.claims?.role !== 'admin') throw redirect({ to: '/login' });
+  beforeLoad: async () => {
+    const {authed, isAdmin, mustChange} = await getAuthState();
+    if (!authed) throw redirect({to: "/login", replace: true});
+    if (!isAdmin) throw redirect({to: "/login", replace: true});
+    if (mustChange) throw redirect({to: "/admin/change-password", replace: true});
   },
 });
 
-// children under /admin
-const dashboardRoute = createRoute({ getParentRoute: () => adminRoute, path: '/',       component: Dashboard });
-const reportsRoute   = createRoute({ getParentRoute: () => adminRoute, path: 'reports',  component: Reports });
-const analyticsRoute = createRoute({ getParentRoute: () => adminRoute, path: 'analytics',component: Analytics });
-const usersRoute     = createRoute({ getParentRoute: () => adminRoute, path: 'users',    component: Users });
-const contentRoute   = createRoute({ getParentRoute: () => adminRoute, path: 'content',  component: Content });
-const securityRoute  = createRoute({ getParentRoute: () => adminRoute, path: 'security', component: Security });
+const dashboardRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/",
+  component: Dashboard,
+});
+const reportsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "reports",
+  component: Reports,
+});
+const analyticsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "analytics",
+  component: Analytics,
+});
+const usersRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "users",
+  component: Users,
+});
+const contentRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "content",
+  component: Content,
+});
+const securityRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "security",
+  component: Security,
+});
 
-// (optional) catch-all → /login
+const changePasswordRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "change-password",
+  beforeLoad: async () => {
+    const {authed, isAdmin} = await getAuthState();
+    if (!authed || !isAdmin) throw redirect({to: "/login", replace: true});
+  },
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '*',
-  beforeLoad: () => { throw redirect({ to: '/login' }); },
+  path: "*",
+  beforeLoad: async () => {
+    const {authed, isAdmin, mustChange} = await getAuthState();
+    if (!authed) throw redirect({to: "/login", replace: true});
+    if (isAdmin) {
+      if (mustChange) throw redirect({to: "/admin/change-password", replace: true});
+      throw redirect({to: "/admin", replace: true});
+    }
+    throw redirect({to: "/login", replace: true});
+  },
 });
 
 const routeTree = rootRoute.addChildren([
@@ -90,20 +171,20 @@ const routeTree = rootRoute.addChildren([
     usersRoute,
     contentRoute,
     securityRoute,
+    changePasswordRoute,
   ]),
   notFoundRoute,
 ]);
 
-const router = createRouter({
-  routeTree,
-  defaultPreload: 'intent',
-  context: { user: null },
-});
+const router = createRouter({routeTree, defaultPreload: "intent"});
 
-declare module '@tanstack/react-router' {
-  interface Register { router: typeof router; }
+// TS augmentation (optional)
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
+  }
 }
 
-export default function AppRouter({ user }: { user: User | null }) {
-  return <RouterProvider router={router} context={{ user }} />;
+export default function AppRouter() {
+  return <RouterProvider router={router} />;
 }
