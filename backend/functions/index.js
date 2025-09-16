@@ -1,130 +1,142 @@
-// functions/index.js (CommonJS, Gen2)
-const {onRequest} = require("firebase-functions/v2/https");
-const {setGlobalOptions} = require("firebase-functions/v2/options");
+const { onRequest } = require("firebase-functions/v2/https");
+const { setGlobalOptions } = require("firebase-functions/v2/options");
 const admin = require("firebase-admin");
+const express = require("express");
+const { v4: uuidv4 } = require("uuid");
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
+const { getStorage } = require("firebase-admin/storage");
 
 // ===== Global options =====
 setGlobalOptions({
   region: "asia-southeast1",
   maxInstances: 2,
-  // memory: "256MiB",
-  // concurrency: 80,
 });
 
 // ===== Firebase Admin =====
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
-// ===== CORS (whitelist your admin UI domains) =====
-const ALLOWED_ORIGINS = new Set([
-  "http://localhost:5173",
+// ===== Express app =====
+const app = express();
+app.use(express.json());
 
-
-  "http://127.0.0.1:5173",
-  // prod admin URLs:
-  // "https://scamhuntph-admin.web.app",
-  // "https://scamhuntph-admin.firebaseapp.com",
-]);
-
-
-// eslint-disable-next-line valid-jsdoc
-/** Set CORS + cache headers */
-function setCors(res, origin, methods = "GET,POST,PATCH,OPTIONS") {
+// ===== CORS middleware =====
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const ALLOWED_ORIGINS = new Set([
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    //"http://localhost:3000",          
+    // prod admin URLs:
+    //"https://scamhuntph-admin.web.app",
+    //"https://scamhuntph-admin.firebaseapp.com",
+  ]);
   if (origin && ALLOWED_ORIGINS.has(origin)) {
-    res.set("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Origin", origin);
   }
-  // eslint-disable-next-line max-len
-  res.set("Vary", "Origin, Access-Control-Request-Method, Access-Control-Request-Headers");
-  res.set("Access-Control-Allow-Credentials", "true");
-  // Allow common cases + both casings
-  // eslint-disable-next-line max-len
-  res.set("Access-Control-Allow-Headers", "Authorization, authorization, Content-Type, content-type");
-  res.set("Access-Control-Allow-Methods", methods);
-  res.set("Access-Control-Max-Age", "7200");
-  res.set("Cache-Control", "no-store");
-}
+  res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  if (req.method === "OPTIONS") return res.status(204).end();
+  next();
+});
 
-// eslint-disable-next-line valid-jsdoc
-/** Parse URL helper (safer than req.query/req.path alone) */
-function parseUrl(req) {
-  const url = new URL(req.url, `https://${req.headers.host}`);
-  return {url, search: url.searchParams, path: url.pathname};
-}
-
-// eslint-disable-next-line valid-jsdoc
-/** Auth helper (Firebase ID token in Authorization: Bearer <token>) */
-async function requireAuth(req, res) {
-  const hdr = req.headers.authorization || "";
-  const m = hdr.match(/^Bearer (.+)$/);
-  if (!m) {
-    res.status(401).json({ok: false, error: "Missing token"});
-    return null;
-  }
-  try {
-    const decoded = await admin.auth().verifyIdToken(m[1]);
-    return decoded;
-  } catch (err) {
-    res.status(401).json({ok: false, error: "Invalid token"});
-    return null;
-  }
-}
-
-// eslint-disable-next-line valid-jsdoc
-/** Serialize Firestore Timestamp to ISO (nullable) */
+// ===== Helpers =====
 function tsToIso(ts) {
-  // eslint-disable-next-line max-len
   return ts && typeof ts.toDate === "function" ? ts.toDate().toISOString() : null;
 }
 
-/* ========================================================================
-   GET /reports?status=...&limit=50&cursor=<docId or ISO or millis>
-   Lists reports ordered by createdAt desc, with optional status filter
-   and cursor pagination (docId OR createdAt time-based).
-   ======================================================================== */
-exports.reports = onRequest({cors: false}, async (req, res) => {
-  const origin = req.headers.origin;
-  setCors(res, origin, "GET, OPTIONS");
-
-  if (req.method === "OPTIONS") return res.status(204).send("");
-  // eslint-disable-next-line max-len
-  if (req.method !== "GET") return res.status(405).json({ok: false, error: "Method Not Allowed"});
-
-  const user = await requireAuth(req, res);
-  if (!user) return;
-
+async function requireAuth(req, res, next) {
+  const hdr = req.headers.authorization || "";
+  const m = hdr.match(/^Bearer (.+)$/);
+  if (!m) return res.status(401).json({ ok: false, error: "Missing token" });
   try {
-    const {search} = parseUrl(req);
-    const status = search.get("status");
-    const limitParam = Number(search.get("limit") || 50);
-    // eslint-disable-next-line max-len
-    const limit = Math.min(Math.max(isFinite(limitParam) ? limitParam : 50, 1), 100);
-    const cursor = search.get("cursor");
+    const decoded = await admin.auth().verifyIdToken(m[1]);
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ ok: false, error: "Invalid token" });
+  }
+}
 
+// ========================================================================
+// REPORT ROUTES
+// ========================================================================
+
+// 🔹 Create report (mobile)
+app.post("/reports", async (req, res) => {
+  try {
+    const { sender, message, category, region, evidenceUrls } = req.body;
+
+    if (!sender || !message) {
+      return res.status(400).json({ ok: false, error: "Sender and message are required" });
+    }
+
+    const reportId = uuidv4();
+
+    await db.collection("reports").doc(reportId).set({
+      sender,
+      message,
+      category: category || "Others",
+      region: region || "N/A",
+      status: "pending",
+      attachments: evidenceUrls || [],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return res.json({ ok: true, id: reportId });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+// 🔹 Upload evidence (screenshot)
+app.post("/reports/upload", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ ok: false, error: "No file uploaded" });
+    }
+
+    const bucket = getStorage().bucket();
+    const filename = `evidence/${Date.now()}_${req.file.originalname}`;
+    const file = bucket.file(filename);
+
+    await file.save(req.file.buffer, { contentType: req.file.mimetype });
+
+    // Signed URL valid until 2030
+    const [url] = await file.getSignedUrl({
+      action: "read",
+      expires: "03-01-2030",
+    });
+
+    return res.json({ ok: true, url });
+  } catch (e) {
+    console.error("Upload error:", e);
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+// 🔹 List reports (admin)
+app.get("/reports", requireAuth, async (req, res) => {
+  try {
+    const { status, limit = 50, cursor } = req.query;
     let q = db.collection("reports").orderBy("createdAt", "desc");
+
     if (status) q = q.where("status", "==", String(status));
-    q = q.limit(limit);
+    q = q.limit(Math.min(Math.max(Number(limit) || 50, 1), 100));
 
     if (cursor) {
-      // Accept a docId OR a createdAt value (ISO or millis)
-      // eslint-disable-next-line max-len
       const cursorDoc = await db.collection("reports").doc(String(cursor)).get();
       if (cursorDoc.exists) {
         q = q.startAfter(cursorDoc);
       } else {
-        let ts;
-        if (/^\d+$/.test(cursor)) {
-          // millis
-          const ms = Number(cursor);
-          // eslint-disable-next-line max-len
-          if (!Number.isFinite(ms)) return res.status(400).json({ok: false, error: "Invalid cursor"});
-          ts = admin.firestore.Timestamp.fromMillis(ms);
-        } else {
-          const d = new Date(cursor);
-          // eslint-disable-next-line max-len
-          if (isNaN(d.getTime())) return res.status(400).json({ok: false, error: "Invalid cursor"});
-          ts = admin.firestore.Timestamp.fromDate(d);
+        const d = new Date(cursor);
+        if (isNaN(d.getTime())) {
+          return res.status(400).json({ ok: false, error: "Invalid cursor" });
         }
-        q = q.startAfter(ts);
+        q = q.startAfter(admin.firestore.Timestamp.fromDate(d));
       }
     }
 
@@ -139,119 +151,74 @@ exports.reports = onRequest({cors: false}, async (req, res) => {
       };
     });
 
-    const last = snap.docs[snap.docs.length - 1];
-    const nextCursor = last ? last.id : null;
-
-    return res.json({ok: true, data, nextCursor});
+    return res.json({ ok: true, data, nextCursor: snap.docs.at(-1)?.id || null });
   } catch (e) {
-    return res.status(500).json({ok: false, error: String(e)});
+    return res.status(500).json({ ok: false, error: String(e) });
   }
 });
 
-/* ========================================================================
-   GET /report/:id
-   Fetch a single report by id
-   ======================================================================== */
-exports.report = onRequest({cors: false}, async (req, res) => {
-  const origin = req.headers.origin;
-  setCors(res, origin, "GET, OPTIONS");
-
-  if (req.method === "OPTIONS") return res.status(204).send("");
-  // eslint-disable-next-line max-len
-  if (req.method !== "GET") return res.status(405).json({ok: false, error: "Method Not Allowed"});
-
-  const user = await requireAuth(req, res);
-  if (!user) return;
-
+// 🔹 Get single report
+app.get("/report/:id", requireAuth, async (req, res) => {
   try {
-    const {path} = parseUrl(req); // e.g., /report/ABC123
-    const parts = path.split("/").filter(Boolean); // ["report", ":id"]
-    const id = parts[1];
-    if (!id) return res.status(400).json({ok: false, error: "Missing id"});
-
-    const doc = await db.collection("reports").doc(id).get();
-    // eslint-disable-next-line max-len
-    if (!doc.exists) return res.status(404).json({ok: false, error: "Not Found"});
+    const doc = await db.collection("reports").doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ ok: false, error: "Not Found" });
 
     const v = doc.data();
     return res.json({
       ok: true,
-      // eslint-disable-next-line max-len
-      data: {id: doc.id, ...v, createdAt: tsToIso(v.createdAt), updatedAt: tsToIso(v.updatedAt)},
+      data: {
+        id: doc.id,
+        ...v,
+        createdAt: tsToIso(v.createdAt),
+        updatedAt: tsToIso(v.updatedAt),
+      },
     });
   } catch (e) {
-    return res.status(500).json({ok: false, error: String(e)});
+    return res.status(500).json({ ok: false, error: String(e) });
   }
 });
 
-/* ========================================================================
-   PATCH /report/:id/status
-   Body: { status: "new|review|closed", note?: string }
-   Updates status + audit fields
-   ======================================================================== */
-exports.reportStatus = onRequest({cors: false}, async (req, res) => {
-  const origin = req.headers.origin;
-  setCors(res, origin, "PATCH, OPTIONS");
-
-  if (req.method === "OPTIONS") return res.status(204).send("");
-  // eslint-disable-next-line max-len
-  if (req.method !== "PATCH") return res.status(405).json({ok: false, error: "Method Not Allowed"});
-
-  const user = await requireAuth(req, res);
-  if (!user) return;
-
+// 🔹 Update report status
+app.patch("/report/:id/status", requireAuth, async (req, res) => {
   try {
-    const {path} = parseUrl(req); // e.g., /report/ABC123/status
-    // eslint-disable-next-line max-len
-    const parts = path.split("/").filter(Boolean); // ["report", ":id", "status"]
-    const id = parts[1];
-    if (!id) return res.status(400).json({ok: false, error: "Missing id"});
+    const { status, note } = req.body || {};
+    if (!status) return res.status(400).json({ ok: false, error: "Missing status" });
 
-    const {status, note} = req.body || {};
-    // eslint-disable-next-line max-len
-    if (!status) return res.status(400).json({ok: false, error: "Missing status"});
-
-    const ref = db.collection("reports").doc(id);
+    const ref = db.collection("reports").doc(req.params.id);
     await ref.update({
       status: String(status),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastActionBy: user.uid,
-      ...(note ? {lastActionNote: String(note)} : {}),
+      lastActionBy: req.user.uid,
+      ...(note ? { lastActionNote: String(note) } : {}),
     });
 
-    return res.json({ok: true});
+    return res.json({ ok: true });
   } catch (e) {
-    return res.status(500).json({ok: false, error: String(e)});
+    return res.status(500).json({ ok: false, error: String(e) });
   }
 });
 
-/* ========================================================================
-   GET /stats
-   Quick counts by status: { new, review, closed }
-   ======================================================================== */
-exports.stats = onRequest({cors: false}, async (req, res) => {
-  const origin = req.headers.origin;
-  setCors(res, origin, "GET, OPTIONS");
-
-  if (req.method === "OPTIONS") return res.status(204).send("");
-  // eslint-disable-next-line max-len
-  if (req.method !== "GET") return res.status(405).json({ok: false, error: "Method Not Allowed"});
-
-  const user = await requireAuth(req, res);
-  if (!user) return;
-
+// 🔹 Stats by status
+app.get("/stats", requireAuth, async (req, res) => {
   try {
     const statuses = ["new", "review", "closed"];
     const counts = {};
     await Promise.all(
-        statuses.map(async (s) => {
-          // eslint-disable-next-line max-len
-          const agg = await db.collection("reports").where("status", "==", s).count().get();
-          counts[s] = agg.data().count || 0;
-        }),
+      statuses.map(async (s) => {
+        const agg = await db.collection("reports").where("status", "==", s).count().get();
+        counts[s] = agg.data().count || 0;
+      })
     );
-    return res.json({ok: true, data: counts});
+    return res.json({ ok: true, data: counts });
   } catch (e) {
-    return res.status(500).json({ok: false, error: String(e)});
+    return res.status(500).json({ ok: false, error: String(e) });
   }
 });
+
+// ========================================================================
+// FUTURE ROUTES (users, modules, etc.)
+// Just add more app.get/app.post/app.patch here
+// ========================================================================
+
+// ===== Export Express API =====
+exports.scamhunt = onRequest(app);

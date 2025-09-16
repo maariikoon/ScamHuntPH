@@ -1,86 +1,147 @@
 import { useEffect, useState } from 'react';
-import { Badge, Button, Group, Table, Text } from '@mantine/core';
-import { collection, onSnapshot, orderBy, query, updateDoc, doc } from 'firebase/firestore';
-import { db } from '@/firebase';
+import { Badge, Button, Group, Table, Text, Loader, Alert } from '@mantine/core';
+
+const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app"; // your backend API
 
 type Report = {
   id: string;
-  createdAt?: { seconds: number; nanoseconds: number };
-  date?: string;
+  createdAt?: string | null; // ISO string from backend
+  updatedAt?: string | null;
   sender?: string;
   category?: string;
   region?: string;
-  status?: 'pending' | 'verified' | 'rejected';
+  status?: 'new' | 'review' | 'closed' | string;
 };
 
 export default function ReportsTable() {
   const [rows, setRows] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadReports = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await fetch(`${API_BASE_URL}/reports`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          // If auth is required, include:
+          // Authorization: `Bearer ${yourIdToken}`
+        },
+      });
+
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new Error("Invalid JSON from server: " + text);
+      }
+
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "Failed to fetch reports");
+      }
+
+      setRows(json.data as Report[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const q = query(collection(db, 'reports'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
-      const data: Report[] = snap.docs.map((d) => {
-        const v = d.data() as Omit<Report, 'id'>;
-        const ts = v.createdAt;
-        const date = ts?.seconds ? new Date(ts.seconds * 1000).toLocaleDateString() : v.date || '';
-        return {
-          id: d.id,
-          date,
-          sender: v.sender || 'Unknown',
-          category: v.category || 'n/a',
-          region: v.region || 'N/A',
-          status: (v.status || 'pending') as Report['status'],
-        };
-      });
-      setRows(data);
-    });
-    return () => unsub();
+    loadReports();
   }, []);
 
-  const setStatus = async (id: string, status: Report['status']) => {
-    await updateDoc(doc(db, 'reports', id), { status });
+  const setStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/report/${id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          // If auth is required, include:
+          // Authorization: `Bearer ${yourIdToken}`
+        },
+        body: JSON.stringify({ status }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "Failed to update status");
+      }
+      // Refresh list after update
+      loadReports();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   return (
-    <Table striped withTableBorder withColumnBorders>
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th>Date</Table.Th>
-          <Table.Th>Sender</Table.Th>
-          <Table.Th>Category</Table.Th>
-          <Table.Th>Region</Table.Th>
-          <Table.Th>Status</Table.Th>
-          <Table.Th>Actions</Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {rows.map((r) => (
-          <Table.Tr key={r.id}>
-            <Table.Td>{r.date}</Table.Td>
-            <Table.Td>{r.sender}</Table.Td>
-            <Table.Td><Badge variant="light">{r.category}</Badge></Table.Td>
-            <Table.Td>{r.region}</Table.Td>
-            <Table.Td>
-              <Badge variant="light" color={r.status === 'pending' ? 'gray' : r.status === 'verified' ? 'green' : 'red'}>
-                {(r.status || 'pending').charAt(0).toUpperCase() + (r.status || 'pending').slice(1)}
-              </Badge>
-            </Table.Td>
-            <Table.Td>
-              <Group gap="xs">
-                <Button size="xs" onClick={() => setStatus(r.id, 'verified')}>Verify</Button>
-                <Button size="xs" variant="light" color="red" onClick={() => setStatus(r.id, 'rejected')}>Reject</Button>
-              </Group>
-            </Table.Td>
-          </Table.Tr>
-        ))}
-        {rows.length === 0 && (
+    <>
+      {error && (
+        <Alert color="red" variant="light" title="Error">
+          {error}
+        </Alert>
+      )}
+      {loading && <Loader size="sm" />}
+
+      <Table striped withTableBorder withColumnBorders>
+        <Table.Thead>
           <Table.Tr>
-            <Table.Td colSpan={6}>
-              <Text c="dimmed">No reports yet.</Text>
-            </Table.Td>
+            <Table.Th>Created</Table.Th>
+            <Table.Th>Sender</Table.Th>
+            <Table.Th>Category</Table.Th>
+            <Table.Th>Region</Table.Th>
+            <Table.Th>Status</Table.Th>
+            <Table.Th>Actions</Table.Th>
           </Table.Tr>
-        )}
-      </Table.Tbody>
-    </Table>
+        </Table.Thead>
+        <Table.Tbody>
+          {rows.map((r) => (
+            <Table.Tr key={r.id}>
+              <Table.Td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'}</Table.Td>
+              <Table.Td>{r.sender || 'Unknown'}</Table.Td>
+              <Table.Td><Badge variant="light">{r.category || 'n/a'}</Badge></Table.Td>
+              <Table.Td>{r.region || 'N/A'}</Table.Td>
+              <Table.Td>
+                <Badge
+                  variant="light"
+                  color={
+                    r.status === 'new'
+                      ? 'gray'
+                      : r.status === 'review'
+                      ? 'yellow'
+                      : r.status === 'closed'
+                      ? 'green'
+                      : 'red'
+                  }
+                >
+                  {(r.status || 'unknown').toUpperCase()}
+                </Badge>
+              </Table.Td>
+              <Table.Td>
+                <Group gap="xs">
+                  <Button size="xs" onClick={() => setStatus(r.id, 'review')}>
+                    Review
+                  </Button>
+                  <Button size="xs" variant="light" color="green" onClick={() => setStatus(r.id, 'closed')}>
+                    Close
+                  </Button>
+                </Group>
+              </Table.Td>
+            </Table.Tr>
+          ))}
+          {rows.length === 0 && !loading && (
+            <Table.Tr>
+              <Table.Td colSpan={6}>
+                <Text c="dimmed">No reports yet.</Text>
+              </Table.Td>
+            </Table.Tr>
+          )}
+        </Table.Tbody>
+      </Table>
+    </>
   );
 }

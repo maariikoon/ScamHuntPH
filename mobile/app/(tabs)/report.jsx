@@ -11,7 +11,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 
-const API_BASE_URL = "https://api-bcvrqgcc6a-uc.a.run.app";
+const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
 
 export default function Report() {
   const [message, setMessage] = useState("");
@@ -68,8 +68,8 @@ export default function Report() {
           category,
           region,
           evidenceUrls: evidenceUrl ? [evidenceUrl] : [],
-          status: "pending", // auto
-          createdAt: new Date().toISOString(), // fallback, backend can override with serverTimestamp
+          status: "pending",
+          createdAt: new Date().toISOString(),
         }),
       });
 
