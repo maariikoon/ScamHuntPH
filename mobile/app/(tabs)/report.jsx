@@ -49,10 +49,10 @@ export default function Report() {
         });
 
         const uploadRes = await fetch(`${API_BASE_URL}/reports/upload`, {
-          method: "POST",
-          headers: { "Content-Type": "multipart/form-data" },
-          body: formData,
-        });
+        method: "POST",
+        body: formData,
+      });
+      
         const uploadJson = await uploadRes.json();
         evidenceUrl = uploadJson.url;
         console.log("✅ Evidence uploaded:", evidenceUrl);
@@ -128,11 +128,13 @@ export default function Report() {
         onValueChange={(itemValue) => setCategory(itemValue)}
       >
         <Picker.Item label="Phishing" value="Phishing" />
-        <Picker.Item label="Spoofing (Fake GCash)" value="Spoofing" />
+        <Picker.Item label="Spoofing (Fake GCash, fake Banks)" value="Spoofing" />
         <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
         <Picker.Item label="Fake Job" value="Fake Job" />
         <Picker.Item label="Loan Scam" value="Loan Scam" />
         <Picker.Item label="Investment Scam" value="Investment Scam" />
+        <Picker.Item label="Gcash Scam" value="Gcash Scam" />
+        <Picker.Item label="Identity theft" value="Identity theft" />
         <Picker.Item label="Others" value="Others" />
       </Picker>
 

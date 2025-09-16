@@ -8,9 +8,11 @@ type Report = {
   createdAt?: string | null; // ISO string from backend
   updatedAt?: string | null;
   sender?: string;
+  message?: string;            // ✅ add message
   category?: string;
   region?: string;
   status?: 'new' | 'review' | 'closed' | string;
+  attachments?: string[];      // ✅ add attachments (screenshots)
 };
 
 export default function ReportsTable() {
@@ -92,8 +94,10 @@ export default function ReportsTable() {
           <Table.Tr>
             <Table.Th>Created</Table.Th>
             <Table.Th>Sender</Table.Th>
+            <Table.Th>Message</Table.Th>      {/* ✅ new column */}
             <Table.Th>Category</Table.Th>
             <Table.Th>Region</Table.Th>
+            <Table.Th>Screenshots</Table.Th>  {/* ✅ new column */}
             <Table.Th>Status</Table.Th>
             <Table.Th>Actions</Table.Th>
           </Table.Tr>
@@ -103,8 +107,28 @@ export default function ReportsTable() {
             <Table.Tr key={r.id}>
               <Table.Td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'}</Table.Td>
               <Table.Td>{r.sender || 'Unknown'}</Table.Td>
+              <Table.Td style={{ maxWidth: 200, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {r.message || '—'}
+              </Table.Td>
               <Table.Td><Badge variant="light">{r.category || 'n/a'}</Badge></Table.Td>
               <Table.Td>{r.region || 'N/A'}</Table.Td>
+              <Table.Td>
+                {r.attachments?.length ? (
+                  r.attachments.map((url, i) => (
+                    <a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#007AFF", marginRight: 8 }}
+                    >
+                      View {i + 1}
+                    </a>
+                  ))
+                ) : (
+                  <span style={{ color: "#888" }}>—</span>
+                )}
+              </Table.Td>
               <Table.Td>
                 <Badge
                   variant="light"
@@ -135,7 +159,7 @@ export default function ReportsTable() {
           ))}
           {rows.length === 0 && !loading && (
             <Table.Tr>
-              <Table.Td colSpan={6}>
+              <Table.Td colSpan={8}>
                 <Text c="dimmed">No reports yet.</Text>
               </Table.Td>
             </Table.Tr>

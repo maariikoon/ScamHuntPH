@@ -12,6 +12,7 @@ import {
   Alert,
   Badge,
   Stack,
+  Tooltip,
 } from '@mantine/core';
 import { useNavigate, useLocation } from '@tanstack/react-router';
 import { getAuth } from "firebase/auth";
@@ -24,6 +25,7 @@ type ReportRow = {
   updatedAt?: string | null;
   status?: 'new' | 'review' | 'closed' | string;
   sender?: string;
+  message?: string;        // ✅ new field
   category?: string;
   region?: string;
   attachments?: string[];
@@ -194,6 +196,7 @@ export default function Reports() {
                 <Table.Th>Created</Table.Th>
                 <Table.Th>Status</Table.Th>
                 <Table.Th>Sender</Table.Th>
+                <Table.Th>Message</Table.Th>      {/* ✅ added */}
                 <Table.Th>Category</Table.Th>
                 <Table.Th>Region</Table.Th>
                 <Table.Th>Screenshots</Table.Th>
@@ -203,10 +206,20 @@ export default function Reports() {
             <Table.Tbody>
               {rows.map((r) => (
                 <Table.Tr key={r.id}>
-                  <Table.Td style={{ whiteSpace: 'nowrap' }}>{r.id}</Table.Td>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}>{r.id.slice(0, 8)}…</Table.Td> {/* ✅ short ID */}
                   <Table.Td>{fmt(r.createdAt)}</Table.Td>
                   <Table.Td>{statusBadge(r.status)}</Table.Td>
                   <Table.Td>{r.sender || '—'}</Table.Td>
+                  <Table.Td style={{ maxWidth: 200, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {r.message ? (
+                      <Tooltip label={r.message} position="top-start" withArrow>
+                        <span>{r.message}</span>
+                      </Tooltip>
+                    ) : (
+                      '—'
+                    )}
+                  </Table.Td>
+                  {/* ✅ new column */}
                   <Table.Td>{r.category || '—'}</Table.Td>
                   <Table.Td>{r.region || '—'}</Table.Td>
                   <Table.Td>
@@ -254,7 +267,7 @@ export default function Reports() {
               ))}
               {!loading && rows.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={8} style={{ textAlign: 'center', color: '#667085' }}>
+                  <Table.Td colSpan={9} style={{ textAlign: 'center', color: '#667085' }}>
                     No reports found.
                   </Table.Td>
                 </Table.Tr>
