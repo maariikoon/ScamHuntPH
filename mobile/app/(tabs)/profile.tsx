@@ -1,15 +1,16 @@
+import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { auth } from "../../src/firebase"; // adjust path if needed
 import { signOut } from "firebase/auth";
 import { router } from "expo-router";
 
-export default function Profile() {
+const Profile: React.FC = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
       Alert.alert("Logged out", "You have been signed out successfully.");
       router.replace("/login"); // redirect to login screen
-    } catch (error) {
+    } catch (error: any) {
       Alert.alert("Error", error.message);
     }
   };
@@ -24,7 +25,7 @@ export default function Profile() {
       </TouchableOpacity>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: { 
@@ -48,3 +49,5 @@ const styles = StyleSheet.create({
     fontSize: 16 
   },
 });
+
+export default Profile;

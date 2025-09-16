@@ -1,6 +1,8 @@
+import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { JSX } from "react/jsx-runtime";
 
-export default function Alerts() {
+export default function Alerts(): JSX.Element {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>🔔 Alerts Page</Text>

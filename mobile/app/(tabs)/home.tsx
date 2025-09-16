@@ -1,9 +1,9 @@
 import { View, Text, StyleSheet } from "react-native";
 
-export default function Learn() {
+export default function Home() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>📘 Learn Page</Text>
+      <Text style={styles.text}>Home Page</Text>
     </View>
   );
 }

@@ -1,16 +1,16 @@
-import { useState } from "react";
+import { JSX, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, UserCredential } from "firebase/auth";
 import { auth } from "../../src/firebase"; // ✅ adjust path if needed
 
-export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export default function Login(): JSX.Element {
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const router = useRouter();
 
-  const handleLogin = async () => {
+  const handleLogin = async (): Promise<void> => {
     if (!email || !password) {
       Alert.alert("Error", "Please fill in all fields.");
       console.log("⚠️ Login attempt failed: Missing email or password");
@@ -18,10 +18,14 @@ export default function Login() {
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential: UserCredential = await signInWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password
+      );
       console.log("✅ User logged in:", userCredential.user.email);
-      router.replace("/learn"); // redirect to Learn tab
-    } catch (error) {
+      router.replace("/home"); // redirect to Home tab
+    } catch (error: any) {
       console.error("❌ Login failed:", error.message);
       Alert.alert("Login Failed", error.message);
     }

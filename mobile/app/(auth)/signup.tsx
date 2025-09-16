@@ -2,21 +2,22 @@ import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, UserCredential } from "firebase/auth";
 import { auth } from "../../src/firebase";
 
 export default function Signup() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
   const router = useRouter();
 
-  const handleSignup = async () => {
+  const handleSignup = async (): Promise<void> => {
     if (!email || !password || !confirmPassword) {
       Alert.alert("Error", "Please fill in all fields.");
       console.log("⚠️ Signup attempt failed: Missing fields");
       return;
     }
+
     if (password !== confirmPassword) {
       Alert.alert("Error", "Passwords do not match.");
       console.log("⚠️ Signup attempt failed: Passwords do not match");
@@ -24,10 +25,14 @@ export default function Signup() {
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential: UserCredential = await createUserWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password
+      );
       console.log("✅ New user created:", userCredential.user.email);
-      router.replace("/learn"); // redirect to Learn tab
-    } catch (error) {
+      router.replace("/home"); // redirect to Home tab
+    } catch (error: any) {
       console.error("❌ Signup failed:", error.message);
       Alert.alert("Signup Failed", error.message);
     }
