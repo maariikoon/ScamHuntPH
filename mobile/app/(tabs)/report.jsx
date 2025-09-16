@@ -11,7 +11,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 
-const API_BASE_URL = "https://api-bcvrqgcc6a-uc.a.run.app";
+const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
 
 export default function Report() {
   const [message, setMessage] = useState("");
@@ -49,10 +49,10 @@ export default function Report() {
         });
 
         const uploadRes = await fetch(`${API_BASE_URL}/reports/upload`, {
-          method: "POST",
-          headers: { "Content-Type": "multipart/form-data" },
-          body: formData,
-        });
+        method: "POST",
+        body: formData,
+      });
+      
         const uploadJson = await uploadRes.json();
         evidenceUrl = uploadJson.url;
         console.log("✅ Evidence uploaded:", evidenceUrl);
@@ -68,8 +68,8 @@ export default function Report() {
           category,
           region,
           evidenceUrls: evidenceUrl ? [evidenceUrl] : [],
-          status: "pending", // auto
-          createdAt: new Date().toISOString(), // fallback, backend can override with serverTimestamp
+          status: "pending",
+          createdAt: new Date().toISOString(),
         }),
       });
 
@@ -128,11 +128,13 @@ export default function Report() {
         onValueChange={(itemValue) => setCategory(itemValue)}
       >
         <Picker.Item label="Phishing" value="Phishing" />
-        <Picker.Item label="Spoofing (Fake GCash)" value="Spoofing" />
+        <Picker.Item label="Spoofing (Fake GCash, fake Banks)" value="Spoofing" />
         <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
         <Picker.Item label="Fake Job" value="Fake Job" />
         <Picker.Item label="Loan Scam" value="Loan Scam" />
         <Picker.Item label="Investment Scam" value="Investment Scam" />
+        <Picker.Item label="Gcash Scam" value="Gcash Scam" />
+        <Picker.Item label="Identity theft" value="Identity theft" />
         <Picker.Item label="Others" value="Others" />
       </Picker>
 
