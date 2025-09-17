@@ -3,7 +3,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword, UserCredential } from "firebase/auth";
-import { auth } from "../../src/firebase";
+import { auth, db } from "../../src/firebase";
+import { doc, setDoc } from "firebase/firestore";
 
 export default function Signup() {
   const [email, setEmail] = useState<string>("");
@@ -30,6 +31,19 @@ export default function Signup() {
         email.trim(),
         password
       );
+      const user = userCredential.user;
+
+      // Save user to Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        email: user.email,
+        createdAt: new Date().toISOString(),
+        firstName: "",
+        lastName: "",
+        birthday: "",
+        region: ""
+      });
+
+      console.log("✅ User profile created in Firestore");
       console.log("✅ New user created:", userCredential.user.email);
       router.replace("/home"); // redirect to Home tab
     } catch (error: any) {
