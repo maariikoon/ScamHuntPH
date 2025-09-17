@@ -20,6 +20,7 @@ import Analytics from "@/pages/Analytics";
 import Users from "@/pages/Users";
 import Content from "@/pages/Content";
 import Security from "@/pages/Security";
+import ReportDetail from "@/pages/ReportDetail";
 
 /** Wait for Firebase Auth to settle and return the user (or null). */
 function authReady(): Promise<import("firebase/auth").User | null> {
@@ -117,6 +118,11 @@ const reportsRoute = createRoute({
   path: "reports",
   component: Reports,
 });
+const reportDetailRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "reports/$id",   // ✅ dynamic segment
+  component: ReportDetail,
+});
 const analyticsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "analytics",
@@ -167,6 +173,7 @@ const routeTree = rootRoute.addChildren([
   adminRoute.addChildren([
     dashboardRoute,
     reportsRoute,
+    reportDetailRoute,
     analyticsRoute,
     usersRoute,
     contentRoute,

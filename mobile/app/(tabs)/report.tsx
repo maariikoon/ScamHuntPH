@@ -12,12 +12,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { JSX } from "react/jsx-runtime";
 import * as FileSystem from "expo-file-system";
+import { auth } from "../../src/firebase"; // ✅ Firebase auth
 
 const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
 
 export default function Report(): JSX.Element {
   const [message, setMessage] = useState<string>("");
-  const [sender, setSender] = useState<string>("");
   const [category, setCategory] = useState<string>("Phishing");
   const [region, setRegion] = useState<string>("NCR");
   const [image, setImage] = useState<string | null>(null);
@@ -34,15 +34,23 @@ export default function Report(): JSX.Element {
   };
 
   const handleSubmit = async (): Promise<void> => {
-    if (!message.trim() || !sender.trim()) {
-      Alert.alert("Error", "Sender and Message are required.");
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to submit a report.");
+      return;
+    }
+
+    if (!message.trim()) {
+      Alert.alert("Error", "Message is required.");
       return;
     }
     setLoading(true);
 
     try {
-      let response;
+      const sender = user.uid; // 👈 use UID as sender
+      const email = user.email; // (optional, for backend)
 
+      let response;
       if (image) {
         const base64 = await FileSystem.readAsStringAsync(image, {
           encoding: FileSystem.EncodingType.Base64,
@@ -53,6 +61,7 @@ export default function Report(): JSX.Element {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sender,
+            email,
             message,
             category,
             region,
@@ -65,6 +74,7 @@ export default function Report(): JSX.Element {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sender,
+            email,
             message,
             category,
             region,
@@ -79,8 +89,7 @@ export default function Report(): JSX.Element {
       if (response.ok) {
         Alert.alert("✅ Success", "Report submitted for review.");
         setMessage("");
-        setSender("");
-        setCategory("Phishing");
+        setCategory("Others");
         setRegion("NCR");
         setImage(null);
       } else {
@@ -98,12 +107,7 @@ export default function Report(): JSX.Element {
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Report a Scam</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Sender (phone/email)"
-        value={sender}
-        onChangeText={setSender}
-      />
+      {/* Removed "Sender" input since UID is auto-assigned */}
 
       <TextInput
         style={styles.input}
@@ -115,7 +119,6 @@ export default function Report(): JSX.Element {
 
       <Text style={styles.label}>Select Category</Text>
       <Picker selectedValue={category} style={styles.picker} onValueChange={setCategory}>
-        <Picker.Item label="Phishing" value="Phishing" />
         <Picker.Item label="Spoofing (Fake GCash, fake Banks)" value="Spoofing" />
         <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
         <Picker.Item label="Fake Job" value="Fake Job" />
@@ -123,16 +126,30 @@ export default function Report(): JSX.Element {
         <Picker.Item label="Investment Scam" value="Investment Scam" />
         <Picker.Item label="Gcash Scam" value="Gcash Scam" />
         <Picker.Item label="Identity theft" value="Identity theft" />
+        <Picker.Item label="Smishing" value="Smishing" />
         <Picker.Item label="Others" value="Others" />
       </Picker>
 
       <Text style={styles.label}>Select Region</Text>
       <Picker selectedValue={region} style={styles.picker} onValueChange={setRegion}>
-        <Picker.Item label="NCR" value="NCR" />
-        <Picker.Item label="Luzon" value="Luzon" />
-        <Picker.Item label="Visayas" value="Visayas" />
-        <Picker.Item label="Mindanao" value="Mindanao" />
-      </Picker>
+      <Picker.Item label="NCR – National Capital Region" value="NCR" />
+      <Picker.Item label="Region I – Ilocos Region" value="Region I" />
+      <Picker.Item label="Region II – Cagayan Valley" value="Region II" />
+      <Picker.Item label="Region III – Central Luzon" value="Region III" />
+      <Picker.Item label="Region IV-A – CALABARZON" value="Region IV-A" />
+      <Picker.Item label="Region IV-B – MIMAROPA" value="Region IV-B" />
+      <Picker.Item label="Region V – Bicol Region" value="Region V" />
+      <Picker.Item label="Region VI – Western Visayas" value="Region VI" />
+      <Picker.Item label="Region VII – Central Visayas" value="Region VII" />
+      <Picker.Item label="Region VIII – Eastern Visayas" value="Region VIII" />
+      <Picker.Item label="Region IX – Zamboanga Peninsula" value="Region IX" />
+      <Picker.Item label="Region X – Northern Mindanao" value="Region X" />
+      <Picker.Item label="Region XI – Davao Region" value="Region XI" />
+      <Picker.Item label="Region XII – SOCCSKSARGEN" value="Region XII" />
+      <Picker.Item label="Region XIII – Caraga" value="Region XIII" />
+      <Picker.Item label="CAR – Cordillera Administrative Region" value="CAR" />
+      <Picker.Item label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao" value="BARMM" />
+    </Picker>
 
       <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
         <Ionicons name="image-outline" size={20} color="#007AFF" />

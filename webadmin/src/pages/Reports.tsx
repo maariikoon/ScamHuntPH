@@ -1,5 +1,5 @@
 // src/pages/Reports.tsx
-import * as React from 'react';
+import * as React from "react";
 import {
   Title,
   Text,
@@ -12,27 +12,19 @@ import {
   Alert,
   Badge,
   Stack,
-  Tooltip,
-} from '@mantine/core';
-import { useNavigate, useLocation } from '@tanstack/react-router';
+} from "@mantine/core";
+import { useNavigate, useLocation } from "@tanstack/react-router";
 import { getAuth } from "firebase/auth";
 
-const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app"; 
+const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
 
 type ReportRow = {
   id: string;
   createdAt: string | null;
-  updatedAt?: string | null;
-  status?: 'new' | 'review' | 'closed' | string;
+  status?: "new" | "review" | "closed" | string;
   sender?: string;
-  message?: string;        // ✅ new field
-  category?: string;
-  region?: string;
-  attachments?: string[];
-  [k: string]: unknown;
 };
 
-// 🔹 Helper to get Firebase ID token
 async function getIdToken(): Promise<string> {
   const auth = getAuth();
   const user = auth.currentUser;
@@ -45,7 +37,7 @@ export default function Reports() {
   const loc = useLocation();
 
   const current =
-    ((loc.pathname.split('/admin/')[1] || 'reports').split('/')[0]) || 'reports';
+    ((loc.pathname.split("/admin/")[1] || "reports").split("/")[0]) || "reports";
 
   const onTabChange = (v: string | null) => {
     if (!v) return;
@@ -53,28 +45,26 @@ export default function Reports() {
   };
 
   React.useEffect(() => {
-    if (loc.pathname === '/admin') {
-      navigate({ to: '/admin/reports', replace: true });
+    if (loc.pathname === "/admin") {
+      navigate({ to: "/admin/reports", replace: true });
     }
   }, [loc.pathname, navigate]);
 
   const [rows, setRows] = React.useState<ReportRow[]>([]);
   const [loading, setLoading] = React.useState<boolean>(true);
-  const [status, setStatus] = React.useState<string>('');
-  const [next, setNext] = React.useState<string | null>(null);
-  const [error, setError] = React.useState<string>('');
+  const [status, setStatus] = React.useState<string>("");
+  const [error, setError] = React.useState<string>("");
 
   // 🔹 Load reports
   const load = React.useCallback(
-    async (cursor?: string | null, reset: boolean = false) => {
+    async () => {
       try {
         setLoading(true);
-        setError('');
+        setError("");
 
         const params = new URLSearchParams();
-        if (status) params.append('status', status);
-        params.append('limit', '50');
-        if (cursor) params.append('cursor', cursor);
+        if (status) params.append("status", status);
+        params.append("limit", "50");
 
         const token = await getIdToken();
 
@@ -90,57 +80,28 @@ export default function Reports() {
           throw new Error(json.error || "Failed to load reports");
         }
 
-        setRows((prev) => (reset ? json.data : [...prev, ...json.data]));
-        setNext(json.nextCursor || null);
+        setRows(json.data);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
         setLoading(false);
       }
     },
-    [status],
+    [status]
   );
 
-  // 🔹 Update report status
-  const setReportStatus = async (id: string, newStatus: string) => {
-    try {
-      const token = await getIdToken();
-
-      const res = await fetch(`${API_BASE_URL}/report/${id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "Failed to update status");
-      }
-
-      load(null, true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
   React.useEffect(() => {
-    load(null, true);
+    load();
   }, [status, load]);
-
-  const fmt = (iso?: string | null) =>
-    iso ? new Date(iso).toLocaleString() : '';
 
   const statusBadge = (s?: string) => {
     const map: Record<string, string> = {
-      new: 'blue',
-      review: 'yellow',
-      closed: 'green',
+      pending: "yellow",
+      verified: "green",
+      declined: "red",
     };
-    const color = map[s || ''] || 'gray';
-    const label = (s || 'unknown').toUpperCase();
+    const color = map[s || ""] || "gray";
+    const label = (s || "unknown").toUpperCase();
     return <Badge color={color} variant="light">{label}</Badge>;
   };
 
@@ -167,16 +128,16 @@ export default function Reports() {
             label="Status"
             placeholder="All"
             value={status}
-            onChange={(v) => setStatus(v || '')}
+            onChange={(v) => setStatus(v || "")}
             data={[
-              { value: '', label: 'All' },
-              { value: 'new', label: 'New' },
-              { value: 'review', label: 'In Review' },
-              { value: 'closed', label: 'Closed' },
+              { value: "", label: "All" },
+              { value: "pending", label: "Pending" },
+              { value: "verified", label: "Verified" },
+              { value: "declined", label: "Declined" },
             ]}
             maw={220}
           />
-          <Button variant="light" onClick={() => load(null, true)} disabled={loading}>
+          <Button variant="light" onClick={load} disabled={loading}>
             Refresh
           </Button>
           {loading && <Loader size="sm" />}
@@ -188,86 +149,30 @@ export default function Reports() {
           </Alert>
         )}
 
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: "auto" }}>
           <Table striped highlightOnHover withTableBorder>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>ID</Table.Th>
-                <Table.Th>Created</Table.Th>
+                <Table.Th>Report ID</Table.Th>
+                <Table.Th>Sender ID</Table.Th>
                 <Table.Th>Status</Table.Th>
-                <Table.Th>Sender</Table.Th>
-                <Table.Th>Message</Table.Th>      {/* ✅ added */}
-                <Table.Th>Category</Table.Th>
-                <Table.Th>Region</Table.Th>
-                <Table.Th>Screenshots</Table.Th>
-                <Table.Th>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {rows.map((r) => (
-                <Table.Tr key={r.id}>
-                  <Table.Td style={{ whiteSpace: 'nowrap' }}>{r.id.slice(0, 8)}…</Table.Td> {/* ✅ short ID */}
-                  <Table.Td>{fmt(r.createdAt)}</Table.Td>
+                <Table.Tr
+                  key={r.id}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => navigate({ to: `/admin/reports/${r.id}` })}
+                >
+                  <Table.Td>{r.id.slice(0, 8)}…</Table.Td>
+                  <Table.Td>{r.sender || "—"}</Table.Td>
                   <Table.Td>{statusBadge(r.status)}</Table.Td>
-                  <Table.Td>{r.sender || '—'}</Table.Td>
-                  <Table.Td style={{ maxWidth: 200, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {r.message ? (
-                      <Tooltip label={r.message} position="top-start" withArrow>
-                        <span>{r.message}</span>
-                      </Tooltip>
-                    ) : (
-                      '—'
-                    )}
-                  </Table.Td>
-                  {/* ✅ new column */}
-                  <Table.Td>{r.category || '—'}</Table.Td>
-                  <Table.Td>{r.region || '—'}</Table.Td>
-                  <Table.Td>
-                    {r.attachments && r.attachments.length > 0 ? (
-                      r.attachments.map((url, i) => (
-                        <a
-                          key={i}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: "#007AFF",
-                            textDecoration: "underline",
-                            marginRight: 8,
-                          }}
-                        >
-                          View {i + 1}
-                        </a>
-                      ))
-                    ) : (
-                      <span style={{ color: "#888" }}>—</span>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs">
-                      <Button
-                        size="xs"
-                        onClick={() => setReportStatus(r.id, 'review')}
-                        disabled={r.status === 'review'}
-                      >
-                        Review
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color="green"
-                        onClick={() => setReportStatus(r.id, 'closed')}
-                        disabled={r.status === 'closed'}
-                      >
-                        Close
-                      </Button>
-                    </Group>
-                  </Table.Td>
                 </Table.Tr>
               ))}
               {!loading && rows.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={9} style={{ textAlign: 'center', color: '#667085' }}>
+                  <Table.Td colSpan={3} style={{ textAlign: "center", color: "#667085" }}>
                     No reports found.
                   </Table.Td>
                 </Table.Tr>
@@ -275,12 +180,6 @@ export default function Reports() {
             </Table.Tbody>
           </Table>
         </div>
-
-        {next && !loading && (
-          <Group justify="center" mt="sm">
-            <Button onClick={() => load(next, false)}>Load more</Button>
-          </Group>
-        )}
       </Stack>
     </>
   );
