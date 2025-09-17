@@ -8,9 +8,9 @@ import {
   RouterProvider,
   redirect,
 } from "@tanstack/react-router";
-import {onAuthStateChanged} from "firebase/auth";
-import {auth} from "@/firebase";
-import {getFirestore, doc, getDoc} from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/firebase";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 
 import AdminLogin from "@/pages/AdminLogin";
 import AdminLayout from "@/layouts/AdminLayout";
@@ -18,9 +18,14 @@ import Dashboard from "@/pages/Dashboard";
 import Reports from "@/pages/Reports";
 import Analytics from "@/pages/Analytics";
 import Users from "@/pages/Users";
-import Content from "@/pages/Content";
 import Security from "@/pages/Security";
 import ReportDetail from "@/pages/ReportDetail";
+import Content from "@/pages/Content";
+
+// ✅ New imports
+// Update the path to the correct location
+import ContentPage from "@/pages/Content"; 
+import LessonDetail from "@/pages/admin/LessonDetail";
 
 /** Wait for Firebase Auth to settle and return the user (or null). */
 function authReady(): Promise<import("firebase/auth").User | null> {
@@ -32,27 +37,19 @@ function authReady(): Promise<import("firebase/auth").User | null> {
   });
 }
 
-// Read current auth state + claims (supports admin claim + role claim + Firestore allow-list)
 async function getAuthState() {
   const u = await authReady();
   if (!u) {
-    return {
-      authed: false as const,
-      isAdmin: false,
-      role: null as string | null,
-      mustChange: false,
-    };
+    return { authed: false as const, isAdmin: false, role: null, mustChange: false };
   }
 
   try {
-    // refresh so the newest custom claims are present
     const token = await u.getIdTokenResult(true);
     const claims = token.claims || {};
     const role = (claims.role as string | undefined) ?? null;
     const mustChange = Boolean(claims.mustChange);
     let isAdmin = claims.admin === true || role === "admin" || role === "superadmin";
 
-    // Firestore fallback: /admins/<uid> {active:true}
     if (!isAdmin) {
       const db = getFirestore();
       const snap = await getDoc(doc(db, "admins", u.uid));
@@ -61,25 +58,25 @@ async function getAuthState() {
       }
     }
 
-    return {authed: true as const, isAdmin, role, mustChange};
+    return { authed: true as const, isAdmin, role, mustChange };
   } catch {
-    return {authed: false as const, isAdmin: false, role: null, mustChange: false};
+    return { authed: false as const, isAdmin: false, role: null, mustChange: false };
   }
 }
 
-const rootRoute = createRootRoute({component: () => <Outlet />});
+const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   beforeLoad: async () => {
-    const {authed, isAdmin, mustChange} = await getAuthState();
-    if (!authed) throw redirect({to: "/login", replace: true});
+    const { authed, isAdmin, mustChange } = await getAuthState();
+    if (!authed) throw redirect({ to: "/login", replace: true });
     if (isAdmin) {
-      if (mustChange) throw redirect({to: "/admin/change-password", replace: true});
-      throw redirect({to: "/admin", replace: true});
+      if (mustChange) throw redirect({ to: "/admin/change-password", replace: true });
+      throw redirect({ to: "/admin", replace: true });
     }
-    throw redirect({to: "/login", replace: true});
+    throw redirect({ to: "/login", replace: true });
   },
 });
 
@@ -88,10 +85,10 @@ const loginRoute = createRoute({
   path: "/login",
   component: AdminLogin,
   beforeLoad: async () => {
-    const {authed, isAdmin, mustChange} = await getAuthState();
+    const { authed, isAdmin, mustChange } = await getAuthState();
     if (authed && isAdmin) {
-      if (mustChange) throw redirect({to: "/admin/change-password", replace: true});
-      throw redirect({to: "/admin", replace: true});
+      if (mustChange) throw redirect({ to: "/admin/change-password", replace: true });
+      throw redirect({ to: "/admin", replace: true });
     }
   },
 });
@@ -101,10 +98,10 @@ const adminRoute = createRoute({
   path: "/admin",
   component: AdminLayout,
   beforeLoad: async () => {
-    const {authed, isAdmin, mustChange} = await getAuthState();
-    if (!authed) throw redirect({to: "/login", replace: true});
-    if (!isAdmin) throw redirect({to: "/login", replace: true});
-    if (mustChange) throw redirect({to: "/admin/change-password", replace: true});
+    const { authed, isAdmin, mustChange } = await getAuthState();
+    if (!authed) throw redirect({ to: "/login", replace: true });
+    if (!isAdmin) throw redirect({ to: "/login", replace: true });
+    if (mustChange) throw redirect({ to: "/admin/change-password", replace: true });
   },
 });
 
@@ -120,7 +117,7 @@ const reportsRoute = createRoute({
 });
 const reportDetailRoute = createRoute({
   getParentRoute: () => adminRoute,
-  path: "reports/$id",   // ✅ dynamic segment
+  path: "reports/$id",
   component: ReportDetail,
 });
 const analyticsRoute = createRoute({
@@ -144,12 +141,24 @@ const securityRoute = createRoute({
   component: Security,
 });
 
+// ✅ New routes for content management
+const contentPageRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "content/list",
+  component: ContentPage,
+});
+const lessonDetailRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "content/$id",
+  component: LessonDetail,
+});
+
 const changePasswordRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "change-password",
   beforeLoad: async () => {
-    const {authed, isAdmin} = await getAuthState();
-    if (!authed || !isAdmin) throw redirect({to: "/login", replace: true});
+    const { authed, isAdmin } = await getAuthState();
+    if (!authed || !isAdmin) throw redirect({ to: "/login", replace: true });
   },
 });
 
@@ -157,13 +166,13 @@ const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "*",
   beforeLoad: async () => {
-    const {authed, isAdmin, mustChange} = await getAuthState();
-    if (!authed) throw redirect({to: "/login", replace: true});
+    const { authed, isAdmin, mustChange } = await getAuthState();
+    if (!authed) throw redirect({ to: "/login", replace: true });
     if (isAdmin) {
-      if (mustChange) throw redirect({to: "/admin/change-password", replace: true});
-      throw redirect({to: "/admin", replace: true});
+      if (mustChange) throw redirect({ to: "/admin/change-password", replace: true });
+      throw redirect({ to: "/admin", replace: true });
     }
-    throw redirect({to: "/login", replace: true});
+    throw redirect({ to: "/login", replace: true });
   },
 });
 
@@ -177,15 +186,16 @@ const routeTree = rootRoute.addChildren([
     analyticsRoute,
     usersRoute,
     contentRoute,
+    contentPageRoute,   // ✅ added
+    lessonDetailRoute,  // ✅ added
     securityRoute,
     changePasswordRoute,
   ]),
   notFoundRoute,
 ]);
 
-const router = createRouter({routeTree, defaultPreload: "intent"});
+const router = createRouter({ routeTree, defaultPreload: "intent" });
 
-// TS augmentation (optional)
 declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;

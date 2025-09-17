@@ -9,8 +9,6 @@ type Stats = {
   pendingReviews: number;
   verifiedReports: number;
   activeUsers: number;
-  activeThreats: number;
-  threatsBlocked: number;
 };
 
 export default function Dashboard() {
@@ -19,8 +17,6 @@ export default function Dashboard() {
     pendingReviews: 0,
     verifiedReports: 0,
     activeUsers: 0,
-    activeThreats: 0,
-    threatsBlocked: 0,
   });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -38,15 +34,11 @@ export default function Dashboard() {
         pendingReviewsSnap,
         verifiedReportsSnap,
         activeUsersSnap,
-        activeThreatsSnap,
-        threatsBlockedSnap,
       ] = await Promise.all([
         getCountFromServer(reportsCol),
         getCountFromServer(query(reportsCol, where('status', '==', 'pending'))),
         getCountFromServer(query(reportsCol, where('status', '==', 'verified'))),
         getCountFromServer(usersCol),
-        getCountFromServer(query(reportsCol, where('isActiveThreat', '==', true))),
-        getCountFromServer(query(reportsCol, where('status', '==', 'blocked'))),
       ]);
 
       if (!alive.current) return;
@@ -56,16 +48,10 @@ export default function Dashboard() {
         pendingReviews: pendingReviewsSnap.data().count,
         verifiedReports: verifiedReportsSnap.data().count,
         activeUsers: activeUsersSnap.data().count,
-        activeThreats: activeThreatsSnap.data().count,
-        threatsBlocked: threatsBlockedSnap.data().count,
       });
     } catch (e: unknown) {
       if (!alive.current) return;
-      if (e instanceof Error) {
-        setErr(e.message);
-      } else {
-        setErr(String(e));
-      }
+      setErr(e instanceof Error ? e.message : String(e));
     } finally {
       if (alive.current) setLoading(false);
     }
@@ -104,12 +90,6 @@ export default function Dashboard() {
         </Grid.Col>
         <Grid.Col span={{ base: 12, sm: 6 }}>
           <StatCard title="Active Users" value={stats.activeUsers} subtitle="Registered users" />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 6 }}>
-          <StatCard title="Active Threats" value={stats.activeThreats} subtitle="Current threats" valueColor="red" />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 6 }}>
-          <StatCard title="Threats Blocked" value={stats.threatsBlocked} subtitle="Prevented incidents" valueColor="green" />
         </Grid.Col>
       </Grid>
     </>
