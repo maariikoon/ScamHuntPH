@@ -31,6 +31,7 @@ async function requireAuth(req, res, next) {
 // ========================================================================
 
 // 🔹 Create report (mobile)
+console.log("📩 POST /reports handler registered");
 router.post("/", async (req, res) => {
   try {
     const { sender, message, category, region, evidenceUrls } = req.body;
@@ -65,6 +66,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       return res.status(400).json({ ok: false, error: "No file uploaded" });
     }
 
+    
     const bucket = getStorage().bucket();
     const filename = `evidence/${Date.now()}_${req.file.originalname}`;
     const file = bucket.file(filename);
@@ -123,13 +125,19 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 // 🔹 Get single report
-router.get("/:id", requireAuth, async (req, res) => {
+// 🔹 Get single report by ID
+router.get("/:id", async (req, res) => {
   try {
-    const doc = await db.collection("reports").doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ ok: false, error: "Not Found" });
+    const { id } = req.params;
+    const doc = await db.collection("reports").doc(id).get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Report not found" });
+    }
 
     const v = doc.data();
-    return res.json({
+
+    res.json({
       ok: true,
       data: {
         id: doc.id,
@@ -139,11 +147,10 @@ router.get("/:id", requireAuth, async (req, res) => {
       },
     });
   } catch (e) {
-    return res.status(500).json({ ok: false, error: String(e) });
+    res.status(500).json({ ok: false, error: String(e) });
   }
 });
 
-// 🔹 Update report status
 // 🔹 Update report status
 router.patch("/:id/status", requireAuth, async (req, res) => {
   try {

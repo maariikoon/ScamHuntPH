@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { JSX } from "react/jsx-runtime";
 import * as FileSystem from "expo-file-system";
-import { auth } from "../../src/firebase"; // ✅ Firebase auth
+import { auth } from "../../src/firebase"; 
 
 const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
 

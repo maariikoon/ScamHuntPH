@@ -38,7 +38,7 @@ export default function ReportDetail() {
       try {
         setLoading(true);
         const token = await getIdToken();
-        const res = await fetch(`${API_BASE_URL}/report/${id}`, {
+        const res = await fetch(`${API_BASE_URL}/reports/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const json = await res.json();
@@ -56,7 +56,7 @@ export default function ReportDetail() {
   const updateStatus = async (status: string) => {
     try {
       const token = await getIdToken();
-      await fetch(`${API_BASE_URL}/report/${id}/status`, {
+      await fetch(`${API_BASE_URL}/reports/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status }),
