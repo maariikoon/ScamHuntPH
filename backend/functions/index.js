@@ -2,10 +2,6 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2/options");
 const admin = require("firebase-admin");
 const express = require("express");
-const { v4: uuidv4 } = require("uuid");
-const multer = require("multer");
-const upload = multer({ storage: multer.memoryStorage() });
-const { getStorage } = require("firebase-admin/storage");
 
 // ===== Global options =====
 setGlobalOptions({
@@ -14,8 +10,13 @@ setGlobalOptions({
 });
 
 // ===== Firebase Admin =====
-if (!admin.apps.length) admin.initializeApp();
+if (!admin.apps.length) {
+  admin.initializeApp({
+    storageBucket: "scamhuntph-b3485.appspot.com",
+  });
+}
 const db = admin.firestore();
+
 
 // ===== Express app =====
 const app = express();
@@ -42,6 +43,7 @@ app.use((req, res, next) => {
   next();
 });
 
+
 // ===== Helpers =====
 function tsToIso(ts) {
   return ts && typeof ts.toDate === "function" ? ts.toDate().toISOString() : null;
@@ -60,12 +62,18 @@ async function requireAuth(req, res, next) {
   }
 }
 
+// 👇 MUST have this, or Cloud Run healthcheck fails
+app.get("/", (req, res) => {
+  res.json({ ok: true, message: "ScamHunt API is alive 🚀" });
+});
+
 // ========================================================================
 // ROUTES
 // ========================================================================
 
+
+// your routes
 const reportsRoutes = require("./routes/reports");
 app.use("/reports", reportsRoutes);
 
-// ===== Export Express API =====
 exports.scamhunt = onRequest(app);
