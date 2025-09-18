@@ -1,28 +1,18 @@
 // src/pages/Reports.tsx
 import * as React from "react";
 import {
-  Title,
-  Text,
-  Tabs,
-  Group,
-  Select,
-  Button,
-  Table,
-  Loader,
-  Alert,
-  Badge,
-  Stack,
-  Paper,
-  TextInput,
-  Divider,
+  Title, Text, Group, Select, Button, Table, Loader, Alert, Badge,
+  Stack, Paper, TextInput, Divider, Pagination,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconRefresh, IconSearch } from "@tabler/icons-react";
-import { useNavigate, useLocation } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { getAuth } from "firebase/auth";
 import "@mantine/dates/styles.css";
+
 const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
+const PAGE_SIZE = 5;
 
 type ReportRow = {
   id: string;
@@ -44,28 +34,26 @@ function toDate(v: string | number | null): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-const fmt = new Intl.DateTimeFormat("en-PH", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
+const fmt = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short" });
+
+/** ---------- Safe date helpers ---------- */
+function coerceDate(x: Date | string | number | null | undefined): Date | null {
+  if (!x) return null;
+  const d = x instanceof Date ? x : new Date(x);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function startOfDay(x: Date | string | number | null | undefined): Date | null {
+  const d = coerceDate(x); if (!d) return null;
+  const copy = new Date(d.getTime()); copy.setHours(0, 0, 0, 0); return copy;
+}
+function endOfDay(x: Date | string | number | null | undefined): Date | null {
+  const d = coerceDate(x); if (!d) return null;
+  const copy = new Date(d.getTime()); copy.setHours(23, 59, 59, 999); return copy;
+}
+/** -------------------------------------- */
 
 export default function Reports() {
   const navigate = useNavigate();
-  const loc = useLocation();
-
-  const current =
-    ((loc.pathname.split("/admin/")[1] || "reports").split("/")[0]) || "reports";
-
-  const onTabChange = (v: string | null) => {
-    if (!v) return;
-    navigate({ to: `/admin/${v}` });
-  };
-
-  React.useEffect(() => {
-    if (loc.pathname === "/admin") {
-      navigate({ to: "/admin/reports", replace: true });
-    }
-  }, [loc.pathname, navigate]);
 
   // data
   const [rows, setRows] = React.useState<ReportRow[]>([]);
@@ -78,73 +66,76 @@ export default function Reports() {
   const [dateRange, setDateRange] = React.useState<[Date | null, Date | null]>([null, null]);
   const [senderDebounced] = useDebouncedValue(sender, 300);
 
+  // pagination
+  const [page, setPage] = React.useState<number>(1);
+
   // Load reports (passes filters to API; still filters client-side as fallback)
-  const load = React.useCallback(
-    async () => {
-      try {
-        setLoading(true);
-        setError("");
+  const load = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-        const params = new URLSearchParams();
-        if (status) params.append("status", status);
-        if (senderDebounced.trim()) params.append("sender", senderDebounced.trim());
-        if (dateRange[0]) params.append("from", dateRange[0]!.toISOString());
-        if (dateRange[1]) params.append("to", dateRange[1]!.toISOString());
-        params.append("limit", "100");
+      const params = new URLSearchParams();
+      if (status) params.append("status", status);
+      if (senderDebounced.trim()) params.append("sender", senderDebounced.trim());
 
-        const token = await getIdToken();
+      // ✅ Coerce before calling toISOString()
+      const fromDate = coerceDate(dateRange[0]);
+      const toDateVal = coerceDate(dateRange[1]);
+      if (fromDate) params.append("from", fromDate.toISOString());
+      if (toDateVal) params.append("to", toDateVal.toISOString());
 
-        const res = await fetch(`${API_BASE_URL}/reports?${params.toString()}`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
+      // backend limit high; client paginates to 5/page
+      params.append("limit", "200");
 
-        const json = await res.json();
-        if (!res.ok || !json.ok) {
-          throw new Error(json.error || "Failed to load reports");
-        }
+      const token = await getIdToken();
+      const res = await fetch(`${API_BASE_URL}/reports?${params.toString()}`, {
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
 
-        const data: ReportRow[] = json.data ?? [];
-        setRows(data);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [status, senderDebounced, dateRange]
-  );
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Failed to load reports");
 
-  React.useEffect(() => {
-    load();
-  }, [load]);
+      setRows((json.data ?? []) as ReportRow[]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [status, senderDebounced, dateRange]);
 
-  // client-side fallback filtering (in case backend ignores filters)
+  React.useEffect(() => { load(); }, [load]);
+
+  // client-side fallback filtering
   const filtered = React.useMemo(() => {
     const [from, to] = dateRange;
+    const fromBound = startOfDay(from);
+    const toBound = endOfDay(to);
+
     return rows.filter((r) => {
       if (status && r.status !== status) return false;
+
       if (senderDebounced) {
         const s = (r.sender || "").toLowerCase();
         if (!s.includes(senderDebounced.toLowerCase())) return false;
       }
-      const d = toDate(r.createdAt);
-      if (from && d && d < new Date(from.setHours(0, 0, 0, 0))) return false;
-      if (to && d && d > new Date(to.setHours(23, 59, 59, 999))) return false;
+
+      const d = coerceDate(r.createdAt);
+      if (fromBound && d && d < fromBound) return false;
+      if (toBound && d && d > toBound) return false;
       return true;
     });
   }, [rows, status, senderDebounced, dateRange]);
 
+  // reset page on changes
+  React.useEffect(() => { setPage(1); }, [status, senderDebounced, dateRange, rows.length]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const start = (page - 1) * PAGE_SIZE;
+  const visible = filtered.slice(start, start + PAGE_SIZE);
+
   const statusBadge = (s?: string) => {
-    const map: Record<string, string> = {
-      pending: "yellow",
-      verified: "green",
-      declined: "red",
-      review: "blue",
-      new: "gray",
-    };
+    const map: Record<string, string> = { pending: "yellow", verified: "green", declined: "red", review: "blue", new: "gray" };
     const color = map[s || ""] || "gray";
     const label = (s || "unknown").toUpperCase();
     return <Badge color={color} variant="light">{label}</Badge>;
@@ -152,20 +143,8 @@ export default function Reports() {
 
   return (
     <>
-      <Tabs value={current} onChange={onTabChange} keepMounted={false}>
-        <Tabs.List>
-          <Tabs.Tab value="reports">Recent Reports</Tabs.Tab>
-          <Tabs.Tab value="analytics">Analytics</Tabs.Tab>
-          <Tabs.Tab value="users">User Management</Tabs.Tab>
-          <Tabs.Tab value="content">Content Management</Tabs.Tab>
-          <Tabs.Tab value="security">Security Monitoring</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
-
       <Title order={3} mt="md">Recent Scam Reports</Title>
-      <Text c="dimmed" mb="md">
-        Review the most recent submissions and take action.
-      </Text>
+      <Text c="dimmed" mb="md">Review the most recent submissions and take action.</Text>
 
       {/* Filters */}
       <Paper withBorder p="md" radius="lg" mb="md">
@@ -208,12 +187,7 @@ export default function Reports() {
 />
 
             <Group gap="xs" mt="lg">
-              <Button
-                variant="light"
-                leftSection={<IconRefresh size={16} />}
-                onClick={load}
-                disabled={loading}
-              >
+              <Button variant="light" leftSection={<IconRefresh size={16} />} onClick={load} disabled={loading}>
                 Refresh
               </Button>
               {loading && <Loader size="sm" />}
@@ -222,16 +196,13 @@ export default function Reports() {
 
           <Divider />
           <Text size="sm" c="dimmed">
-            Showing <b>{filtered.length}</b> {filtered.length === 1 ? "result" : "results"}
+            Showing <b>{filtered.length === 0 ? 0 : `${start + 1}-${Math.min(start + PAGE_SIZE, filtered.length)}`}</b> of{" "}
+            <b>{filtered.length}</b> {filtered.length === 1 ? "result" : "results"}
           </Text>
         </Stack>
       </Paper>
 
-      {error && (
-        <Alert color="red" variant="light" title="Failed to load" mb="md">
-          {error}
-        </Alert>
-      )}
+      {error && <Alert color="red" variant="light" title="Failed to load" mb="md">{error}</Alert>}
 
       {/* Table */}
       <div style={{ overflowX: "auto" }}>
@@ -245,14 +216,10 @@ export default function Reports() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {filtered.map((r) => {
+            {visible.map((r) => {
               const d = toDate(r.createdAt);
               return (
-                <Table.Tr
-                  key={r.id}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => navigate({ to: `/admin/reports/${r.id}` })}
-                >
+                <Table.Tr key={r.id} style={{ cursor: "pointer" }} onClick={() => navigate({ to: `/admin/reports/${r.id}` })}>
                   <Table.Td>{r.id.slice(0, 8)}…</Table.Td>
                   <Table.Td>{r.sender || "—"}</Table.Td>
                   <Table.Td>{d ? fmt.format(d) : "—"}</Table.Td>
@@ -270,6 +237,11 @@ export default function Reports() {
           </Table.Tbody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      <Group justify="center" mt="md">
+        <Pagination total={pageCount} value={page} onChange={setPage} size="sm" />
+      </Group>
     </>
   );
 }
