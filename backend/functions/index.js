@@ -12,7 +12,7 @@ setGlobalOptions({
 // ===== Firebase Admin =====
 if (!admin.apps.length) {
   admin.initializeApp({
-    storageBucket: "scamhuntph-b3485.appspot.com",
+    storageBucket: "scamhuntph-b3485.firebasestorage.app",
   });
 }
 const db = admin.firestore();
@@ -72,8 +72,12 @@ app.get("/", (req, res) => {
 // ========================================================================
 
 
-// your routes
+// report routes
 const reportsRoutes = require("./routes/reports");
 app.use("/reports", reportsRoutes);
+
+// lessons routes
+const lessonsRouter = require("./routes/lessons");
+app.use("/lessons", lessonsRouter);
 
 exports.scamhunt = onRequest(app);
