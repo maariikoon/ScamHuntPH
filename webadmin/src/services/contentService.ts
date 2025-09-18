@@ -25,23 +25,40 @@ import { db } from "@/firebase";
 export type Lesson = {
   id: string;
   title: string;
-  content: string;
+  content: string;          // may contain HTML
   category: string;
-  published: boolean;
+  published: boolean;       // true = Published, false = Saved/Draft
   createdAt?: Date | null;
   updatedAt?: Date | null;
 };
 
 export type NewLesson = Omit<Lesson, "id" | "createdAt" | "updatedAt">;
 
+export type LessonFilterOpts = {
+  pageSize?: number;                    // default 10
+  status?: "all" | "published" | "saved";
+  category?: string | null;
+  search?: string;                      // matches title/category (client-side)
+  dateFrom?: Date | null;               // createdAt >= dateFrom
+  dateTo?: Date | null;                 // createdAt <= endOfDay(dateTo)
+  startAfterDocId?: string | null;      // cursor for paging
+};
+
 /** ===== Collection Ref ===== */
 const LESSONS = collection(db, "lessons");
 
-/** Small helper: Firestore Timestamp/Date -> Date|null */
-function tsToDate(v: unknown): Date | null {
+/** Small helper: Firestore Timestamp/Date/string/number -> Date|null */
+export function tsToDate(v: unknown): Date | null {
   if (!v) return null;
   if (v instanceof Date) return v;
   if (v instanceof Timestamp) return v.toDate();
+  if (typeof v === "number") return new Date(v);
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (!Number.isNaN(n) && v.trim() !== "") return new Date(n);
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }
   // Support objects with .toDate()
   // @ts-expect-error runtime guard
   if (typeof v === "object" && v?.toDate) return v.toDate();
@@ -89,7 +106,7 @@ export async function getLessons(): Promise<Lesson[]> {
   return snaps.docs.map(toLesson);
 }
 
-/** Optional: server-side paging */
+/** Optional: server-side paging by createdAt (desc) */
 export async function getLessonsPage(opts?: {
   pageSize?: number;
   category?: string | null;
@@ -113,6 +130,59 @@ export async function getLessonsPage(opts?: {
   const snaps = await getDocs(qFinal);
   const items = snaps.docs.map(toLesson);
   const lastId = snaps.docs.length ? snaps.docs[snaps.docs.length - 1].id : null;
+  return { items, lastId };
+}
+
+/**
+ * Filtered + paginated fetch used by the table UI.
+ * Supports status, category, date range and cursor paging.
+ * Search (title/category) is applied client-side after fetch.
+ *
+ * ⚠️ For combos like (published + category + createdAt) Firestore may prompt
+ * you to create a composite index—accept the link once and you're done.
+ */
+export async function getLessonsFiltered(
+  opts?: LessonFilterOpts
+): Promise<{ items: Lesson[]; lastId: string | null }> {
+  const pageSize = opts?.pageSize ?? 10;
+  const parts: QueryConstraint[] = [];
+
+  // status -> published boolean
+  if (opts?.status === "published") parts.push(where("published", "==", true));
+  if (opts?.status === "saved") parts.push(where("published", "==", false));
+
+  if (opts?.category) parts.push(where("category", "==", opts.category));
+
+  // createdAt range
+  if (opts?.dateFrom) parts.push(where("createdAt", ">=", opts.dateFrom));
+  if (opts?.dateTo) {
+    const end = new Date(opts.dateTo);
+    end.setHours(23, 59, 59, 999);
+    parts.push(where("createdAt", "<=", end));
+  }
+
+  let qBase = query(LESSONS, ...parts, orderBy("createdAt", "desc"));
+
+  if (opts?.startAfterDocId) {
+    const lastSnap = await getDoc(doc(db, "lessons", opts.startAfterDocId));
+    if (lastSnap.exists()) qBase = query(qBase, startAfter(lastSnap));
+  }
+
+  const qFinal = query(qBase, qLimit(pageSize));
+  const snaps = await getDocs(qFinal);
+  let items = snaps.docs.map(toLesson);
+  const lastId = snaps.docs.length ? snaps.docs[snaps.docs.length - 1].id : null;
+
+  // lightweight client-side search over title/category
+  if (opts?.search && opts.search.trim()) {
+    const s = opts.search.toLowerCase();
+    items = items.filter(
+      (r) =>
+        r.title.toLowerCase().includes(s) ||
+        (r.category ?? "").toLowerCase().includes(s)
+    );
+  }
+
   return { items, lastId };
 }
 

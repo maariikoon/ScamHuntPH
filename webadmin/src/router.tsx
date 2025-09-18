@@ -20,12 +20,11 @@ import Analytics from "@/pages/Analytics";
 import Users from "@/pages/Users";
 import Security from "@/pages/Security";
 import ReportDetail from "@/pages/ReportDetail";
-import Content from "@/pages/Content";
 
-// ✅ New imports
-// Update the path to the correct location
-import ContentPage from "@/pages/Content"; 
-import LessonDetail from "@/pages/admin/LessonDetail";
+// ✅ Use the table-style list as ContentPage
+import ContentPage from "@/pages/Content";
+// ✅ Detail page (adjust path if yours is different)
+import LessonDetail from "@/pages/LessonDetail";
 
 /** Wait for Firebase Auth to settle and return the user (or null). */
 function authReady(): Promise<import("firebase/auth").User | null> {
@@ -40,14 +39,13 @@ function authReady(): Promise<import("firebase/auth").User | null> {
 async function getAuthState() {
   const u = await authReady();
   if (!u) {
-    return { authed: false as const, isAdmin: false, role: null, mustChange: false };
+    return { authed: false as const, isAdmin: false, role: null };
   }
 
   try {
     const token = await u.getIdTokenResult(true);
     const claims = token.claims || {};
     const role = (claims.role as string | undefined) ?? null;
-    const mustChange = Boolean(claims.mustChange);
     let isAdmin = claims.admin === true || role === "admin" || role === "superadmin";
 
     if (!isAdmin) {
@@ -58,9 +56,9 @@ async function getAuthState() {
       }
     }
 
-    return { authed: true as const, isAdmin, role, mustChange };
+    return { authed: true as const, isAdmin, role };
   } catch {
-    return { authed: false as const, isAdmin: false, role: null, mustChange: false };
+    return { authed: false as const, isAdmin: false, role: null };
   }
 }
 
@@ -70,12 +68,9 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   beforeLoad: async () => {
-    const { authed, isAdmin, mustChange } = await getAuthState();
+    const { authed, isAdmin } = await getAuthState();
     if (!authed) throw redirect({ to: "/login", replace: true });
-    if (isAdmin) {
-      if (mustChange) throw redirect({ to: "/admin/change-password", replace: true });
-      throw redirect({ to: "/admin", replace: true });
-    }
+    if (isAdmin) throw redirect({ to: "/admin", replace: true });
     throw redirect({ to: "/login", replace: true });
   },
 });
@@ -85,9 +80,8 @@ const loginRoute = createRoute({
   path: "/login",
   component: AdminLogin,
   beforeLoad: async () => {
-    const { authed, isAdmin, mustChange } = await getAuthState();
+    const { authed, isAdmin } = await getAuthState();
     if (authed && isAdmin) {
-      if (mustChange) throw redirect({ to: "/admin/change-password", replace: true });
       throw redirect({ to: "/admin", replace: true });
     }
   },
@@ -98,84 +92,75 @@ const adminRoute = createRoute({
   path: "/admin",
   component: AdminLayout,
   beforeLoad: async () => {
-    const { authed, isAdmin, mustChange } = await getAuthState();
+    const { authed, isAdmin } = await getAuthState();
     if (!authed) throw redirect({ to: "/login", replace: true });
     if (!isAdmin) throw redirect({ to: "/login", replace: true });
-    if (mustChange) throw redirect({ to: "/admin/change-password", replace: true });
   },
 });
 
+/* ----- Admin children ----- */
 const dashboardRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/",
   component: Dashboard,
 });
+
 const reportsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "reports",
   component: Reports,
 });
+
 const reportDetailRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "reports/$id",
   component: ReportDetail,
 });
+
 const analyticsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "analytics",
   component: Analytics,
 });
+
 const usersRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "users",
   component: Users,
 });
-const contentRoute = createRoute({
+
+/** ✅ Content list (table) */
+const contentListRoute = createRoute({
   getParentRoute: () => adminRoute,
-  path: "content",
-  component: Content,
+  path: "content/$lessonId",
+  component: ContentPage,
 });
+
+/** ✅ Lesson detail (param name matches your page code) */
+const lessonDetailRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "content/$lessonId",
+  component: LessonDetail,
+});
+
 const securityRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "security",
   component: Security,
 });
 
-// ✅ New routes for content management
-const contentPageRoute = createRoute({
-  getParentRoute: () => adminRoute,
-  path: "content/list",
-  component: ContentPage,
-});
-const lessonDetailRoute = createRoute({
-  getParentRoute: () => adminRoute,
-  path: "content/$id",
-  component: LessonDetail,
-});
-
-const changePasswordRoute = createRoute({
-  getParentRoute: () => adminRoute,
-  path: "change-password",
-  beforeLoad: async () => {
-    const { authed, isAdmin } = await getAuthState();
-    if (!authed || !isAdmin) throw redirect({ to: "/login", replace: true });
-  },
-});
-
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "*",
   beforeLoad: async () => {
-    const { authed, isAdmin, mustChange } = await getAuthState();
+    const { authed, isAdmin } = await getAuthState();
     if (!authed) throw redirect({ to: "/login", replace: true });
-    if (isAdmin) {
-      if (mustChange) throw redirect({ to: "/admin/change-password", replace: true });
-      throw redirect({ to: "/admin", replace: true });
-    }
+    if (isAdmin) throw redirect({ to: "/admin", replace: true });
     throw redirect({ to: "/login", replace: true });
   },
 });
 
+/* ----- Router tree ----- */
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
@@ -185,11 +170,9 @@ const routeTree = rootRoute.addChildren([
     reportDetailRoute,
     analyticsRoute,
     usersRoute,
-    contentRoute,
-    contentPageRoute,   // ✅ added
-    lessonDetailRoute,  // ✅ added
+    contentListRoute,  // /admin/content
+    lessonDetailRoute, // /admin/content/$lessonId
     securityRoute,
-    changePasswordRoute,
   ]),
   notFoundRoute,
 ]);
