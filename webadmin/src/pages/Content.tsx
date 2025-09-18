@@ -241,9 +241,12 @@ export default function ContentPage() {
               </Table.Td>
               <Table.Td>
                 <Group gap="xs">
-                  {/* Icon button that wraps a Link */}
-                  <ActionIcon variant="subtle" title="Open" component={Link}
-                    to={`/admin/content/${item.id}`}>
+                  {/* Use handler to avoid polymorphic runtime issues */}
+                  <ActionIcon
+                    variant="subtle"
+                    title="Open"
+                    onClick={() => openDetail(item.id)}
+                  >
                     <IconExternalLink size={18} />
                   </ActionIcon>
 
@@ -346,7 +349,6 @@ export default function ContentPage() {
                   </Button>
                 )}
               </Group>
-              {/* Keep programmatic nav for modal's Open */}
               <Button
                 variant="light"
                 leftSection={<IconExternalLink size={16} />}

@@ -1,3 +1,4 @@
+// src/pages/LessonDetail.tsx
 import * as React from "react";
 import {
   Title,
@@ -52,6 +53,11 @@ const CATEGORIES = [
   "other",
 ];
 
+const CATEGORY_OPTIONS = CATEGORIES.map((c) => ({
+  value: c,
+  label: c.replace(/_/g, " "),
+}));
+
 export default function LessonDetail() {
   const { lessonId } = useParams({ from: "/admin/content/$lessonId" });
 
@@ -63,7 +69,7 @@ export default function LessonDetail() {
   const [saving, setSaving] = React.useState(false);
   const [publishing, setPublishing] = React.useState(false);
 
-  // form fields (only used in editing mode)
+  // form fields (used only in editing mode)
   const [title, setTitle] = React.useState("");
   const [category, setCategory] = React.useState<string | null>("other");
   const [content, setContent] = React.useState("");
@@ -90,7 +96,6 @@ export default function LessonDetail() {
           updatedAt: data.updatedAt ?? null,
         };
         setItem(hydrated);
-        // if we were editing and reloaded, keep form in sync
         if (editing) hydrateForm(hydrated);
       } else {
         setItem(null);
@@ -110,9 +115,7 @@ export default function LessonDetail() {
     setEditing(true);
   };
 
-  const cancelEdit = () => {
-    setEditing(false);
-  };
+  const cancelEdit = () => setEditing(false);
 
   const saveChanges = async () => {
     if (!item) return;
@@ -145,6 +148,12 @@ export default function LessonDetail() {
     }
   };
 
+  // Memoized sanitized HTML for view mode
+  const safeHtml = React.useMemo(
+    () => DOMPurify.sanitize(item?.content ?? ""),
+    [item?.content]
+  );
+
   return (
     <Stack>
       {/* Top bar */}
@@ -173,7 +182,9 @@ export default function LessonDetail() {
             <>
               <Button
                 size="md"
-                leftSection={saving ? <Loader size="xs" /> : <IconDeviceFloppy size={18} />}
+                leftSection={
+                  saving ? <Loader size="xs" /> : <IconDeviceFloppy size={18} />
+                }
                 onClick={saveChanges}
                 disabled={saving}
                 color="blue"
@@ -252,7 +263,7 @@ export default function LessonDetail() {
                   <Group gap="sm" wrap="wrap" mt="xs">
                     <Select
                       label="Category"
-                      data={CATEGORIES}
+                      data={CATEGORY_OPTIONS}
                       value={category}
                       onChange={setCategory}
                       w={260}
@@ -290,9 +301,7 @@ export default function LessonDetail() {
           {!editing ? (
             <div
               style={{ lineHeight: 1.7, fontSize: 16 }}
-              dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(item.content ?? ""),
-              }}
+              dangerouslySetInnerHTML={{ __html: safeHtml }}
             />
           ) : (
             <Textarea

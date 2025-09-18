@@ -21,9 +21,8 @@ import Users from "@/pages/Users";
 import Security from "@/pages/Security";
 import ReportDetail from "@/pages/ReportDetail";
 
-// ✅ Use the table-style list as ContentPage
+// List + Detail
 import ContentPage from "@/pages/Content";
-// ✅ Detail page (adjust path if yours is different)
 import LessonDetail from "@/pages/LessonDetail";
 
 /** Wait for Firebase Auth to settle and return the user (or null). */
@@ -38,9 +37,7 @@ function authReady(): Promise<import("firebase/auth").User | null> {
 
 async function getAuthState() {
   const u = await authReady();
-  if (!u) {
-    return { authed: false as const, isAdmin: false, role: null };
-  }
+  if (!u) return { authed: false as const, isAdmin: false, role: null };
 
   try {
     const token = await u.getIdTokenResult(true);
@@ -51,9 +48,7 @@ async function getAuthState() {
     if (!isAdmin) {
       const db = getFirestore();
       const snap = await getDoc(doc(db, "admins", u.uid));
-      if (snap.exists() && snap.data()?.active === true) {
-        isAdmin = true;
-      }
+      if (snap.exists() && snap.data()?.active === true) isAdmin = true;
     }
 
     return { authed: true as const, isAdmin, role };
@@ -81,9 +76,7 @@ const loginRoute = createRoute({
   component: AdminLogin,
   beforeLoad: async () => {
     const { authed, isAdmin } = await getAuthState();
-    if (authed && isAdmin) {
-      throw redirect({ to: "/admin", replace: true });
-    }
+    if (authed && isAdmin) throw redirect({ to: "/admin", replace: true });
   },
 });
 
@@ -129,14 +122,14 @@ const usersRoute = createRoute({
   component: Users,
 });
 
-/** ✅ Content list (table) */
+/** ✅ Content list (no param) -> /admin/content */
 const contentListRoute = createRoute({
   getParentRoute: () => adminRoute,
-  path: "content/$lessonId",
+  path: "content",
   component: ContentPage,
 });
 
-/** ✅ Lesson detail (param name matches your page code) */
+/** ✅ Lesson detail -> /admin/content/$lessonId */
 const lessonDetailRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "content/$lessonId",
@@ -170,8 +163,8 @@ const routeTree = rootRoute.addChildren([
     reportDetailRoute,
     analyticsRoute,
     usersRoute,
-    contentListRoute,  // /admin/content
-    lessonDetailRoute, // /admin/content/$lessonId
+    contentListRoute,   // /admin/content
+    lessonDetailRoute,  // /admin/content/$lessonId
     securityRoute,
   ]),
   notFoundRoute,
