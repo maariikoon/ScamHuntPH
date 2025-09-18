@@ -5,7 +5,6 @@ import { Link } from "expo-router";
 export default function Alerts() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Alerts & Reports</Text>
 
       {/* Navigate to Your Reports */}
       <Link href="/reports" asChild>

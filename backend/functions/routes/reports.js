@@ -32,7 +32,7 @@ async function requireAuth(req, res, next) {
 
 // 🔹 Create report (mobile)
 console.log("📩 POST /reports handler registered");
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
   try {
     const { sender, message, category, region, evidenceUrls } = req.body;
 
@@ -43,7 +43,8 @@ router.post("/", async (req, res) => {
     const reportId = uuidv4();
 
     await db.collection("reports").doc(reportId).set({
-      sender,
+      userId: req.user.uid,
+      sender: req.user.uid,
       message,
       category: category || "Others",
       region: region || "N/A",
@@ -124,7 +125,31 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
-// 🔹 Get single report
+// Get current user's reports
+router.get("/my", requireAuth, async (req, res) => {
+  try {
+    const snapshot = await db
+      .collection("reports")
+      .where("userId", "==", req.user.uid)
+      .get();
+
+    const reports = snapshot.docs.map(doc => {
+      const v = doc.data();
+      return {
+        id: doc.id,
+        ...v,
+        createdAt: tsToIso(v.createdAt),
+        updatedAt: tsToIso(v.updatedAt),
+      };
+    });
+
+    res.json({ ok: true, reports });
+  } catch (err) {
+    console.error("❌ Error fetching user reports:", err);
+    res.status(500).json({ ok: false, error: "Failed to fetch reports" });
+  }
+});
+
 // 🔹 Get single report by ID
 router.get("/:id", async (req, res) => {
   try {
@@ -190,5 +215,7 @@ router.get("/stats/all", requireAuth, async (req, res) => {
     return res.status(500).json({ ok: false, error: String(e) });
   }
 });
+
+
 
 module.exports = router;

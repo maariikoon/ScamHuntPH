@@ -44,52 +44,46 @@ export default function Report(): JSX.Element {
       Alert.alert("Error", "Message is required.");
       return;
     }
+
     setLoading(true);
 
     try {
-      const sender = user.uid; // 👈 use UID as sender
-      const email = user.email; // (optional, for backend)
+      const sender = user.uid;         // 👈 stored in Firestore
+      const email = user.email || "";  // optional
+      const token = await user.getIdToken();
 
-      let response;
+      // ✅ prepare base64 if screenshot exists
+      let base64: string | null = null;
       if (image) {
-        const base64 = await FileSystem.readAsStringAsync(image, {
+        base64 = await FileSystem.readAsStringAsync(image, {
           encoding: FileSystem.EncodingType.Base64,
         });
-
-        response = await fetch(`${API_BASE_URL}/reports`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sender,
-            email,
-            message,
-            category,
-            region,
-            base64,
-          }),
-        });
-      } else {
-        response = await fetch(`${API_BASE_URL}/reports`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sender,
-            email,
-            message,
-            category,
-            region,
-          }),
-        });
       }
+
+      const response = await fetch(`${API_BASE_URL}/reports`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,   // 🔑 required for backend
+        },
+        body: JSON.stringify({
+          sender,
+          email,
+          message,
+          category,
+          region,
+          ...(base64 ? { base64 } : {}),  // only include if exists
+        }),
+      });
 
       const text = await response.text();
       console.log("Raw server response:", text);
 
       const reportJson = JSON.parse(text);
-      if (response.ok) {
+      if (response.ok && reportJson.ok) {
         Alert.alert("✅ Success", "Report submitted for review.");
         setMessage("");
-        setCategory("Others");
+        setCategory("Phishing");
         setRegion("NCR");
         setImage(null);
       } else {
@@ -107,8 +101,6 @@ export default function Report(): JSX.Element {
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Report a Scam</Text>
 
-      {/* Removed "Sender" input since UID is auto-assigned */}
-
       <TextInput
         style={styles.input}
         placeholder="Paste scam message here..."
@@ -119,6 +111,7 @@ export default function Report(): JSX.Element {
 
       <Text style={styles.label}>Select Category</Text>
       <Picker selectedValue={category} style={styles.picker} onValueChange={setCategory}>
+        <Picker.Item label="Phishing" value="Phishing" />
         <Picker.Item label="Spoofing (Fake GCash, fake Banks)" value="Spoofing" />
         <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
         <Picker.Item label="Fake Job" value="Fake Job" />
@@ -132,24 +125,24 @@ export default function Report(): JSX.Element {
 
       <Text style={styles.label}>Select Region</Text>
       <Picker selectedValue={region} style={styles.picker} onValueChange={setRegion}>
-      <Picker.Item label="NCR – National Capital Region" value="NCR" />
-      <Picker.Item label="Region I – Ilocos Region" value="Region I" />
-      <Picker.Item label="Region II – Cagayan Valley" value="Region II" />
-      <Picker.Item label="Region III – Central Luzon" value="Region III" />
-      <Picker.Item label="Region IV-A – CALABARZON" value="Region IV-A" />
-      <Picker.Item label="Region IV-B – MIMAROPA" value="Region IV-B" />
-      <Picker.Item label="Region V – Bicol Region" value="Region V" />
-      <Picker.Item label="Region VI – Western Visayas" value="Region VI" />
-      <Picker.Item label="Region VII – Central Visayas" value="Region VII" />
-      <Picker.Item label="Region VIII – Eastern Visayas" value="Region VIII" />
-      <Picker.Item label="Region IX – Zamboanga Peninsula" value="Region IX" />
-      <Picker.Item label="Region X – Northern Mindanao" value="Region X" />
-      <Picker.Item label="Region XI – Davao Region" value="Region XI" />
-      <Picker.Item label="Region XII – SOCCSKSARGEN" value="Region XII" />
-      <Picker.Item label="Region XIII – Caraga" value="Region XIII" />
-      <Picker.Item label="CAR – Cordillera Administrative Region" value="CAR" />
-      <Picker.Item label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao" value="BARMM" />
-    </Picker>
+        <Picker.Item label="NCR – National Capital Region" value="NCR" />
+        <Picker.Item label="Region I – Ilocos Region" value="Region I" />
+        <Picker.Item label="Region II – Cagayan Valley" value="Region II" />
+        <Picker.Item label="Region III – Central Luzon" value="Region III" />
+        <Picker.Item label="Region IV-A – CALABARZON" value="Region IV-A" />
+        <Picker.Item label="Region IV-B – MIMAROPA" value="Region IV-B" />
+        <Picker.Item label="Region V – Bicol Region" value="Region V" />
+        <Picker.Item label="Region VI – Western Visayas" value="Region VI" />
+        <Picker.Item label="Region VII – Central Visayas" value="Region VII" />
+        <Picker.Item label="Region VIII – Eastern Visayas" value="Region VIII" />
+        <Picker.Item label="Region IX – Zamboanga Peninsula" value="Region IX" />
+        <Picker.Item label="Region X – Northern Mindanao" value="Region X" />
+        <Picker.Item label="Region XI – Davao Region" value="Region XI" />
+        <Picker.Item label="Region XII – SOCCSKSARGEN" value="Region XII" />
+        <Picker.Item label="Region XIII – Caraga" value="Region XIII" />
+        <Picker.Item label="CAR – Cordillera Administrative Region" value="CAR" />
+        <Picker.Item label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao" value="BARMM" />
+      </Picker>
 
       <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
         <Ionicons name="image-outline" size={20} color="#007AFF" />
