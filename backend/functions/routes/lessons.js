@@ -1,16 +1,17 @@
 const express = require("express");
 const admin = require("firebase-admin");
+const corsMiddleware = require("../middleware/cors");
 
-const router = express.Router();
+const app = express();
+app.use(express.json());
+app.use(corsMiddleware);  // 👈 apply CORS here
+
 const db = admin.firestore();
 
-// helper: Firestore timestamp → ISO string
-function tsToIso(ts) {
-  return ts && typeof ts.toDate === "function" ? ts.toDate().toISOString() : null;
-}
+const { tsToIso } = require("../utils/helpers");
 
 // 🔹 Get all published lessons
-router.get("/", async (req, res) => {
+app.get("/", async (req, res) => {
   try {
     const snap = await db
       .collection("lessons")
@@ -36,7 +37,7 @@ router.get("/", async (req, res) => {
 });
 
 // 🔹 Get single lesson by ID (only if published)
-router.get("/:id", async (req, res) => {
+app.get("/:id", async (req, res) => {
   try {
     const doc = await db.collection("lessons").doc(req.params.id).get();
     if (!doc.exists) {
@@ -63,4 +64,4 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = app;

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 
-const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
+const API_BASE_URL = "https://lessons-bcvrqgcc6a-as.a.run.app";
 
 type Lesson = {
   id: string;
@@ -20,7 +20,7 @@ export default function Learn() {
   useEffect(() => {
     async function fetchLessons() {
       try {
-        const res = await fetch(`${API_BASE_URL}/lessons`);
+        const res = await fetch(`${API_BASE_URL}/`);
         const data = await res.json();
         console.log("📘 API response (lessons):", data);
 

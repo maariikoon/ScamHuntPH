@@ -7,9 +7,9 @@ import {
   ActivityIndicator,
   ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";  // ✅ correct import
+import { SafeAreaView } from "react-native-safe-area-context"; 
 
-const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
+const API_BASE_URL = "https://lessons-bcvrqgcc6a-as.a.run.app";
 
 type LessonDetail = {
   id: string;
@@ -37,7 +37,7 @@ export default function LessonDetail() {
       }
 
       try {
-        const url = `${API_BASE_URL}/lessons/${learnId}`;
+        const url = `${API_BASE_URL}/${learnId}`;
         console.log("🔍 Fetching lesson:", url);
 
         const res = await fetch(url);

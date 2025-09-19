@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth } from "../../src/firebase";
 
-const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
+const API_BASE_URL = "https://reports-bcvrqgcc6a-as.a.run.app";
 
 export default function UserReport() {
   const [reports, setReports] = useState<any[]>([]);
@@ -25,7 +25,7 @@ export default function UserReport() {
     setLoading(true);
     try {
       const token = await user.getIdToken();
-      const res = await fetch(`${API_BASE_URL}/reports/my`, {
+      const res = await fetch(`${API_BASE_URL}/my`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();

@@ -11,7 +11,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { getAuth } from "firebase/auth";
 import "@mantine/dates/styles.css";
 
-const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
+const API_BASE_URL = "https://reports-bcvrqgcc6a-as.a.run.app";
 const PAGE_SIZE = 5;
 
 type ReportRow = {
@@ -89,7 +89,7 @@ export default function Reports() {
       params.append("limit", "200");
 
       const token = await getIdToken();
-      const res = await fetch(`${API_BASE_URL}/reports?${params.toString()}`, {
+      const res = await fetch(`${API_BASE_URL}/?${params.toString()}`, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
 

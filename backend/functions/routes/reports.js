@@ -3,28 +3,17 @@ const { v4: uuidv4 } = require("uuid");
 const multer = require("multer");
 const { getStorage } = require("firebase-admin/storage");
 const admin = require("firebase-admin");
+const corsMiddleware = require("../middleware/cors");
 
-const router = express.Router();
+const app = express();
+app.use(express.json());
+app.use(corsMiddleware);  //  CORS here
+
 const upload = multer({ storage: multer.memoryStorage() });
 const db = admin.firestore();
 
 // ===== Helpers =====
-function tsToIso(ts) {
-  return ts && typeof ts.toDate === "function" ? ts.toDate().toISOString() : null;
-}
-
-async function requireAuth(req, res, next) {
-  const hdr = req.headers.authorization || "";
-  const m = hdr.match(/^Bearer (.+)$/);
-  if (!m) return res.status(401).json({ ok: false, error: "Missing token" });
-  try {
-    const decoded = await admin.auth().verifyIdToken(m[1]);
-    req.user = decoded;
-    next();
-  } catch {
-    return res.status(401).json({ ok: false, error: "Invalid token" });
-  }
-}
+const { tsToIso, requireAuth } = require("../utils/helpers");
 
 // ========================================================================
 // REPORT ROUTES
@@ -32,7 +21,7 @@ async function requireAuth(req, res, next) {
 
 // 🔹 Create report (mobile)
 console.log("📩 POST /reports handler registered");
-router.post("/", requireAuth, async (req, res) => {
+app.post("/", requireAuth, async (req, res) => {
   try {
     const { sender, message, category, region, evidenceUrls } = req.body;
 
@@ -61,7 +50,7 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 // 🔹 Upload evidence (screenshot)
-router.post("/upload", upload.single("file"), async (req, res) => {
+app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ ok: false, error: "No file uploaded" });
@@ -87,7 +76,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 });
 
 // 🔹 List reports (admin)
-router.get("/", requireAuth, async (req, res) => {
+app.get("/", requireAuth, async (req, res) => {
   try {
     const { status, limit = 50, cursor } = req.query;
     let q = db.collection("reports").orderBy("createdAt", "desc");
@@ -126,7 +115,7 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 // Get current user's reports
-router.get("/my", requireAuth, async (req, res) => {
+app.get("/my", requireAuth, async (req, res) => {
   try {
     const snapshot = await db
       .collection("reports")
@@ -151,7 +140,7 @@ router.get("/my", requireAuth, async (req, res) => {
 });
 
 // 🔹 Get single report by ID
-router.get("/:id", async (req, res) => {
+app.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const doc = await db.collection("reports").doc(id).get();
@@ -177,10 +166,10 @@ router.get("/:id", async (req, res) => {
 });
 
 // 🔹 Update report status
-router.patch("/:id/status", requireAuth, async (req, res) => {
+app.patch("/:id/status", requireAuth, async (req, res) => {
   try {
     const { status, note } = req.body || {};
-    const allowedStatuses = ["pending", "verified", "declined"];  // ✅ new statuses
+    const allowedStatuses = ["pending", "verified", "declined"];
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(400).json({ ok: false, error: "Invalid status" });
     }
@@ -200,7 +189,7 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
 });
 
 // 🔹 Stats by status
-router.get("/stats/all", requireAuth, async (req, res) => {
+app.get("/stats/all", requireAuth, async (req, res) => {
   try {
     const statuses = ["pending", "verified", "declined"];
     const counts = {};
@@ -218,4 +207,4 @@ router.get("/stats/all", requireAuth, async (req, res) => {
 
 
 
-module.exports = router;
+module.exports = app;

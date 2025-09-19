@@ -8,7 +8,7 @@ import {
 import { IconArrowLeft, IconShieldCheck } from '@tabler/icons-react';
 import { getAuth } from 'firebase/auth';
 
-const API_BASE_URL = 'https://scamhunt-bcvrqgcc6a-as.a.run.app';
+const API_BASE_URL = 'https://reports-bcvrqgcc6a-as.a.run.app';
 
 type Report = {
   id: string;
@@ -62,7 +62,7 @@ export default function ReportDetail() {
       setError(null);
       setLoading(true);
       const token = await getIdToken();
-      const res = await fetch(`${API_BASE_URL}/reports/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json();
@@ -83,7 +83,7 @@ export default function ReportDetail() {
   const updateStatus = async (status: 'verified' | 'declined') => {
     try {
       const token = await getIdToken();
-      const res = await fetch(`${API_BASE_URL}/reports/${id}/status`, {
+      const res = await fetch(`${API_BASE_URL}/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status }),

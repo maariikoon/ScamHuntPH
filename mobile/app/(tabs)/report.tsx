@@ -14,7 +14,7 @@ import { JSX } from "react/jsx-runtime";
 import * as FileSystem from "expo-file-system";
 import { auth } from "../../src/firebase"; 
 
-const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
+const API_BASE_URL = "https://reports-bcvrqgcc6a-as.a.run.app";
 
 export default function Report(): JSX.Element {
   const [message, setMessage] = useState<string>("");
@@ -60,7 +60,7 @@ export default function Report(): JSX.Element {
         });
       }
 
-      const response = await fetch(`${API_BASE_URL}/reports`, {
+      const response = await fetch(`${API_BASE_URL}/`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

@@ -18,66 +18,24 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 
-// ===== Express app =====
-const app = express();
-app.use(express.json());
-
-// ===== CORS middleware =====
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const ALLOWED_ORIGINS = new Set([
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    //"http://localhost:3000",          
-    // prod admin URLs:
-    //"https://scamhuntph-admin.web.app",
-    //"https://scamhuntph-admin.firebaseapp.com",
-  ]);
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-  res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  if (req.method === "OPTIONS") return res.status(204).end();
-  next();
-});
-
-
-// ===== Helpers =====
-function tsToIso(ts) {
-  return ts && typeof ts.toDate === "function" ? ts.toDate().toISOString() : null;
-}
-
-async function requireAuth(req, res, next) {
-  const hdr = req.headers.authorization || "";
-  const m = hdr.match(/^Bearer (.+)$/);
-  if (!m) return res.status(401).json({ ok: false, error: "Missing token" });
-  try {
-    const decoded = await admin.auth().verifyIdToken(m[1]);
-    req.user = decoded;
-    next();
-  } catch {
-    return res.status(401).json({ ok: false, error: "Invalid token" });
-  }
-}
-
-// 👇 MUST have this, or Cloud Run healthcheck fails
-app.get("/", (req, res) => {
+// Health check
+const health = express();
+health.get("/", (req, res) => {
   res.json({ ok: true, message: "ScamHunt API is alive 🚀" });
 });
+exports.health = onRequest(health);
 
 // ========================================================================
 // ROUTES
 // ========================================================================
 
 
-// report routes
-const reportsRoutes = require("./routes/reports");
-app.use("/reports", reportsRoutes);
+// ===== Import standalone route apps =====
+const lessons = require("./routes/lessons");
+const reports = require("./routes/reports");
 
-// lessons routes
-const lessonsRouter = require("./routes/lessons");
-app.use("/lessons", lessonsRouter);
 
-exports.scamhunt = onRequest(app);
+// Export each as a separate Firebase Function
+exports.lessons = onRequest(lessons);
+exports.reports = onRequest(reports);
+
