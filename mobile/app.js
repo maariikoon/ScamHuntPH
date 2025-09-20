@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, FlatList, SafeAreaView, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button, FlatList, SafeAreaView, StyleSheet, Platform } from 'react-native';
 import { auth, db } from './src/firebase';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
