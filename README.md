@@ -10,31 +10,31 @@
 ## To Run
 
 ### A. Mobile
-```bash
-cd mobile
-npm install
-npm run start
-```
+  ```bash
+  cd mobile
+  npm install
+  npm run start
+  ```
 
 ### B. Web Admin
-```bash
-cd webadmin
-npm install
-npm run dev
-```
+  ```bash
+  cd webadmin
+  npm install
+  npm run dev
+  ```
 
 ### C. Functions - If you want to deploy new or update function (API)
-```bash
-cd backend/functions
-npm install
-```
+  ```bash
+  cd backend/functions
+  npm install
+  ```
 - #### To deploy:
-```bash
-firebase deploy --only functions
-```
+  ```bash
+  firebase deploy --only functions
+  ```
 
 - #### List deployed functions:
-```bash
-firebase functions:list
-```
+  ```bash
+  firebase functions:list
+  ```
 
