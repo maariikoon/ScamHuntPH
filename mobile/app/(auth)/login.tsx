@@ -3,7 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword, UserCredential } from "firebase/auth";
-import { auth } from "../../src/firebase"; // ✅ adjust path if needed
+import { auth } from "../../src/firebase"; // 
 
 export default function Login(): JSX.Element {
   const [email, setEmail] = useState<string>("");

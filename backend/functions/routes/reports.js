@@ -5,9 +5,18 @@ const { getStorage } = require("firebase-admin/storage");
 const admin = require("firebase-admin");
 const corsMiddleware = require("../middleware/cors");
 
+
 const app = express();
-app.use(express.json());
 app.use(corsMiddleware);  //  CORS here
+
+// 👇 Conditional body parser
+app.use((req, res, next) => {
+  if (req.is("multipart/form-data")) {
+    // skip JSON parsing for uploads
+    return next();
+  }
+  return express.json()(req, res, next);
+});
 
 const upload = multer({ storage: multer.memoryStorage() });
 const db = admin.firestore();
@@ -50,30 +59,37 @@ app.post("/", requireAuth, async (req, res) => {
 });
 
 // 🔹 Upload evidence (screenshot)
-app.post("/upload", upload.single("file"), async (req, res) => {
+app.post("/uploadUrl", requireAuth, async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ ok: false, error: "No file uploaded" });
-    }
+    const { filename } = req.body || {};
+    const safeFilename = filename?.replace(/[^\w.-]/g, "_") || "upload.jpg";
 
-    
     const bucket = getStorage().bucket();
-    const filename = `evidence/${Date.now()}_${req.file.originalname}`;
-    const file = bucket.file(filename);
+    const filePath = `evidence/${req.user.uid}/${Date.now()}_${safeFilename}`;
+    const file = bucket.file(filePath);
 
-    await file.save(req.file.buffer, { contentType: req.file.mimetype });
-
-    const [url] = await file.getSignedUrl({
-      action: "read",
-      expires: "03-01-2030",
+    // Signed URL for uploading
+    const [uploadUrl] = await file.getSignedUrl({
+      version: "v4",
+      action: "write",
+      expires: Date.now() + 15 * 60 * 1000, // 15 min validity
+      contentType: "image/jpeg",
     });
 
-    return res.json({ ok: true, url });
-  } catch (e) {
-    console.error("Upload error:", e);
-    return res.status(500).json({ ok: false, error: String(e) });
+    // Signed URL for later reading (long term)
+    const [readUrl] = await file.getSignedUrl({
+      version: "v4",
+      action: "read",
+      expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    return res.json({ ok: true, uploadUrl, readUrl });
+  } catch (err) {
+    console.error("❌ Signed URL error:", err);
+    return res.status(500).json({ ok: false, error: String(err) });
   }
 });
+
 
 // 🔹 List reports (admin)
 app.get("/", requireAuth, async (req, res) => {
