@@ -28,7 +28,7 @@ import {
   Cell,
 } from "recharts";
 
-const API_BASE_URL = "https://scamhunt-bcvrqgcc6a-as.a.run.app";
+const API_BASE_URL = "https://analytics-bcvrqgcc6a-as.a.run.app";
 
 /* ---------------- Types ---------------- */
 type ReportRow = {
@@ -215,7 +215,7 @@ export default function Analytics() {
         let usr: UserRow[] = [];
 
         try {
-          const res = await fetch(`${API_BASE_URL}/analytics/overview`, { headers });
+          const res = await fetch(`${API_BASE_URL}/overview`, { headers });
           if (res.ok) {
             const j = await res.json();
             if (j?.data?.reports) rep = j.data.reports;

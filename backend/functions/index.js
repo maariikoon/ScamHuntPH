@@ -33,9 +33,10 @@ exports.health = onRequest(health);
 // ===== Import standalone route apps =====
 const lessons = require("./routes/lessons");
 const reports = require("./routes/reports");
+const analytics = require("./routes/analytics");
 
 
 // Export each as a separate Firebase Function
 exports.lessons = onRequest(lessons);
 exports.reports = onRequest(reports);
-
+exports.analytics = onRequest(analytics);
