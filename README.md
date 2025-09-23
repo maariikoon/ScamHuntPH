@@ -38,3 +38,7 @@
   firebase functions:list
   ```
 
+## Troubleshooting:
+  - #### ScamhuntPH web admin - White Screen:
+    Check this doc: https://docs.google.com/document/d/1syI7KKRt4iEg4IQkI-ZPmxlnwBGDVKGv71fDUT1tmI4/edit?usp=sharing
+
