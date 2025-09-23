@@ -42,7 +42,7 @@ function cleanHTML(raw: any): string {
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
 }
 
-export default function LessonDetail() {
+export default function LessonDetailScreen() {
   const { learnId } = useLocalSearchParams();
   const [lesson, setLesson] = useState<LessonDetail | null>(null);
   const [loading, setLoading] = useState(true);
