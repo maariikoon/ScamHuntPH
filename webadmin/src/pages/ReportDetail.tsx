@@ -3,12 +3,25 @@ import { useParams, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState, useMemo } from 'react';
 import {
   Title, Text, Badge, Button, Group, Loader, Alert, Stack,
-  Paper, Divider, Grid, Anchor, Center
+  Paper, Divider, Grid, Anchor, Center, Select, Textarea,
 } from '@mantine/core';
 import { IconArrowLeft, IconShieldCheck } from '@tabler/icons-react';
 import { getAuth } from 'firebase/auth';
 
 const API_BASE_URL = 'https://reports-bcvrqgcc6a-as.a.run.app';
+
+const CATEGORY_OPTIONS = [
+  { value: "phishing", label: "Phishing/Smishing" },
+  { value: "gcash_scam", label: "Gcash Scam" },
+  { value: "delivery_fraud", label: "Delivery Fraud" },
+  { value: "fake_job", label: "Fake Job" },
+  { value: "loan_scam", label: "Loan Scam" },
+  { value: "investment_scam", label: "Investment Scam" },
+  { value: "identity_theft", label: "Identity Theft" },
+  { value: "lottery_scam", label: "Lottery Scam" },
+  { value: "other", label: "Other" },
+];
+
 
 type Report = {
   id: string;
@@ -20,6 +33,8 @@ type Report = {
   status?: 'pending' | 'verified' | 'declined' | string;
   createdAt?: string | null;
   updatedAt?: string | null;
+  lastActionBy?: string;   // admin UID
+  feedback?: string;       // admin notes
 };
 
 async function getIdToken() {
@@ -47,6 +62,8 @@ export default function ReportDetail() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [newCategory, setNewCategory] = useState<string | null>(null);
 
   const created = useMemo(
     () => (report?.createdAt ? new Date(report.createdAt).toLocaleString() : '—'),
@@ -86,7 +103,11 @@ export default function ReportDetail() {
       const res = await fetch(`${API_BASE_URL}/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          status,
+          feedback,
+          category: newCategory || report?.category,
+        }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -97,6 +118,8 @@ export default function ReportDetail() {
       setError(e instanceof Error ? e.message : String(e));
     }
   };
+
+  
 
   if (loading) {
     return (
@@ -196,6 +219,7 @@ export default function ReportDetail() {
 
           <Divider my="sm" />
 
+
           {/* --- Message LAST --- */}
           <Text>
             <b>Message:</b>{' '}
@@ -205,6 +229,59 @@ export default function ReportDetail() {
           </Text>
         </Stack>
       </Paper>
+
+      <Divider my="sm" />
+
+      {/* --- Review Info --- */}
+      <Stack gap="xs">
+        <Text fw={600}>Admin Review</Text>
+
+        <Text>
+          <b>Status updated to:</b>{" "}
+          {(report.status || "—").toUpperCase()}
+        </Text>
+
+        <Text>
+          <b>Category set to:</b>{" "}
+          {report.category || "—"}
+        </Text>
+
+        <Text>
+          <b>Reviewed by:</b> {report.lastActionBy || "—"}
+        </Text>
+
+        <Text>
+          <b>Reviewed on:</b>{" "}
+          {report.updatedAt ? new Date(report.updatedAt).toLocaleString() : "—"}
+        </Text>
+
+        <Text>
+          <b>Feedback:</b>{" "}
+          <Text span style={{ whiteSpace: "pre-wrap" }}>
+            {report.feedback || "—"}
+          </Text>
+        </Text>
+      </Stack>
+
+      <Divider my="sm" />
+
+      {/* --- Admin inputs --- */}
+      <Textarea
+        label="Admin Feedback"
+        placeholder="Add notes for this report"
+        value={feedback}
+        onChange={(e) => setFeedback(e.currentTarget.value)}
+        autosize
+        minRows={3}
+      />
+
+      <Select
+        label="Category"
+        data={CATEGORY_OPTIONS}
+        value={newCategory || report?.category || "other"}
+        onChange={setNewCategory}
+        mt="md"
+      />
 
       <Group mt="xs">
         <Button

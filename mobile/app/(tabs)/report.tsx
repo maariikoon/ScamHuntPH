@@ -138,20 +138,14 @@ export default function Report(): JSX.Element {
           style={styles.picker}
           onValueChange={setCategory}
         >
-          <Picker.Item label="Phishing" value="Phishing" />
-          <Picker.Item label="Spoofing (Fake GCash, fake Banks)" value="Spoofing" />
+          <Picker.Item label="Phishing/Smishing" value="Phishing/Smishing" />
           <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
           <Picker.Item label="Fake Job" value="Fake Job" />
           <Picker.Item label="Loan Scam" value="Loan Scam" />
           <Picker.Item label="Investment Scam" value="Investment Scam" />
           <Picker.Item label="Gcash Scam" value="Gcash Scam" />
           <Picker.Item label="Identity theft" value="Identity theft" />
-          <Picker.Item label="Smishing" value="Smishing" />
           <Picker.Item label="Lottery Scams" value="Lottery Scams" />
-          <Picker.Item
-            label="Impersonation Scam (Fake Person)"
-            value="Impersonation Scam (Fake Person)"
-          />
           <Picker.Item label="Others" value="Others" />
         </Picker>
 
