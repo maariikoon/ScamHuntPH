@@ -5,7 +5,7 @@ import {
   Title, Text, Badge, Button, Group, Loader, Alert, Stack,
   Paper, Divider, Grid, Anchor, Center, Select, Textarea,
 } from '@mantine/core';
-import { IconArrowLeft, IconShieldCheck } from '@tabler/icons-react';
+import { IconArrowLeft, IconShieldCheck, IconMessage2, IconTags } from '@tabler/icons-react';
 import { getAuth } from 'firebase/auth';
 
 const API_BASE_URL = 'https://reports-bcvrqgcc6a-as.a.run.app';
@@ -234,28 +234,30 @@ export default function ReportDetail() {
 
       {/* --- Review Info --- */}
       <Stack gap="xs">
-        <Text fw={600}>Admin Review</Text>
+        <Text fw={700} size="lg" c="#1338BE">
+          Admin Review
+        </Text>
 
-        <Text>
+        <Text ml="md">
           <b>Status updated to:</b>{" "}
           {(report.status || "—").toUpperCase()}
         </Text>
 
-        <Text>
+        <Text ml="md">
           <b>Category set to:</b>{" "}
           {report.category || "—"}
         </Text>
 
-        <Text>
+        <Text ml="md">
           <b>Reviewed by:</b> {report.lastActionBy || "—"}
         </Text>
 
-        <Text>
+        <Text ml="md">
           <b>Reviewed on:</b>{" "}
           {report.updatedAt ? new Date(report.updatedAt).toLocaleString() : "—"}
         </Text>
 
-        <Text>
+        <Text ml="md">
           <b>Feedback:</b>{" "}
           <Text span style={{ whiteSpace: "pre-wrap" }}>
             {report.feedback || "—"}
@@ -273,6 +275,7 @@ export default function ReportDetail() {
         onChange={(e) => setFeedback(e.currentTarget.value)}
         autosize
         minRows={3}
+        leftSection={<IconMessage2 size={18} stroke={1.5} />}
       />
 
       <Select
@@ -281,6 +284,7 @@ export default function ReportDetail() {
         value={newCategory || report?.category || "other"}
         onChange={setNewCategory}
         mt="md"
+        leftSection={<IconTags size={18} stroke={1.5} />} 
       />
 
       <Group mt="xs">
