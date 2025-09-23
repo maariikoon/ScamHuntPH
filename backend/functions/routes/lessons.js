@@ -8,7 +8,7 @@ app.use(corsMiddleware);  // 👈 apply CORS here
 
 const db = admin.firestore();
 
-const { tsToIso } = require("../utils/helpers");
+const { tsToIso, requireAuth } = require("../utils/helpers");
 
 // ========================================================================
 // LESSONS ROUTES
@@ -70,6 +70,59 @@ app.get("/:id", async (req, res) => {
   } catch (e) {
     console.error("❌ Error fetching lesson:", e);
     return res.status(500).json({ ok: false, error: "Failed to fetch lesson" });
+  }
+});
+
+// ========================================================================
+// 🔹 Publish a new lesson + notify all users
+// ========================================================================
+app.post("/", requireAuth, async (req, res) => {
+  try {
+    const { title, category, content, shortDescription } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ ok: false, error: "Title and content are required" });
+    }
+
+    const lessonRef = db.collection("lessons").doc();
+    const lesson = {
+      title,
+      category: category || "other",
+      content,
+      shortDescription: shortDescription || "",
+      published: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await lessonRef.set(lesson);
+    console.log("✅ Lesson created:", lessonRef.id, title);
+
+    // 🔔 Create notifications for all users
+    const usersSnap = await db.collection("users").get();
+    console.log("👥 Users found:", usersSnap.size);
+    const batch = db.batch();
+
+    usersSnap.forEach((doc) => {
+      console.log("🔔 Creating notification for user:", doc.id);
+      const notifRef = db.collection("notifications").doc();
+      batch.set(notifRef, {
+        userId: doc.id,
+        type: "lesson_published",
+        title: "New Lesson 📘",
+        message: `${title} is now available.`,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
+      });
+    });
+
+    await batch.commit();
+    console.log("✅ Notifications batch committed");
+
+
+    return res.json({ ok: true, id: lessonRef.id });
+  } catch (e) {
+    console.error("❌ Error creating lesson:", e);
+    return res.status(500).json({ ok: false, error: "Failed to create lesson" });
   }
 });
 

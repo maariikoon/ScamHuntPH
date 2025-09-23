@@ -268,12 +268,45 @@ app.patch("/:id/status", requireAuth, requireAdmin, async (req, res) => {
     const comment = (feedback || adminComment || note || "").trim();
 
     const ref = db.collection("reports").doc(req.params.id);
+
+    // 🔍 Fetch the report first so we know who owns it
+    const snap = await ref.get();
+    if (!snap.exists) {
+      return res.status(404).json({ ok: false, error: "Report not found" });
+    }
+    const report = snap.data();  // ✅ now defined
+
+    // 🔹 Update the report
     await ref.update({
       status: String(status),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       lastActionBy: req.user.uid,
-      ...(comment ? { feedback: comment } : {}), // ✅ now always defined
+      ...(comment ? { feedback: comment } : {}),
     });
+    console.log(`✅ Report ${req.params.id} updated to status: ${status}`);
+
+    // 🔹 Add a notification for the report owner
+    if (report && report.userId) {
+      console.log("🔔 Creating notification for report owner:", report.userId);
+
+      await db.collection("notifications").add({
+        userId: report.userId,
+        type: "report_review",
+        title: status === "verified" ? "Report Approved ✅" : "Report Denied ❌",
+        message:
+          status === "verified"
+            ? "Your scam report was verified by an admin."
+            : "Your scam report was denied by an admin.",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
+      });
+
+      console.log(`✅ Notification created for user: ${report.userId}`);
+    } else {
+      console.warn(
+        `⚠️ Report ${req.params.id} has no userId — notification not created`
+      );
+    }
 
     return res.json({ ok: true });
   } catch (e) {
