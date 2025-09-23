@@ -24,6 +24,7 @@ export default function Report(): JSX.Element {
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
+  // 🔹 Pick an image from gallery
   const pickImage = async (): Promise<void> => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -35,15 +36,36 @@ export default function Report(): JSX.Element {
     }
   };
 
-  // 🔹 Ask backend for signed URL
-  async function getSignedUrl(token: string, filename: string) {
+  // 🔹 Step 1: Create report first
+  async function createReport(
+    token: string,
+    message: string,
+    category: string,
+    region: string
+  ): Promise<string> {
+    const res = await fetch(`${API_BASE_URL}/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ message, category, region }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Failed to create report");
+    return data.id as string;
+  }
+
+  // 🔹 Step 2: Ask backend for signed URL (now includes reportId)
+  async function getSignedUrl(token: string, reportId: string, filename: string) {
     const res = await fetch(`${API_BASE_URL}/uploadUrl`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ filename }),
+      body: JSON.stringify({ reportId, filename }),
     });
 
     const data = await res.json();
@@ -51,20 +73,41 @@ export default function Report(): JSX.Element {
     return data; // { uploadUrl, readUrl }
   }
 
-  // 🔹 Upload directly to GCS with signed URL
+  // 🔹 Step 3: Upload directly to GCS
   async function uploadWithSignedUrl(uri: string, uploadUrl: string) {
     const resp = await fetch(uri);
     const blob = await resp.blob();
 
+    const contentType = blob.type || "application/octet-stream";
+
     const put = await fetch(uploadUrl, {
       method: "PUT",
-      headers: { "Content-Type": "image/jpeg" },
+      headers: { "Content-Type": contentType },
       body: blob,
     });
 
-    if (!put.ok) throw new Error("Failed to upload file to GCS");
+    if (!put.ok) {
+      const errText = await put.text();
+      throw new Error(`Failed to upload file to GCS: ${put.status} ${errText}`);
+    }
   }
 
+  // 🔹 Step 4: Patch report to attach evidence
+  async function addEvidence(token: string, reportId: string, url: string) {
+    const res = await fetch(`${API_BASE_URL}/${reportId}/evidence`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ url }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Failed to attach evidence");
+  }
+
+  // 🔹 Submit flow (new order)
   const handleSubmit = async (): Promise<void> => {
     const user = auth.currentUser;
     if (!user) return Alert.alert("Error", "You must be logged in");
@@ -74,44 +117,22 @@ export default function Report(): JSX.Element {
     try {
       const token = await user.getIdToken();
 
-      let evidenceUrls: string[] = [];
-      if (image) {
-        // 1. Request signed URL from backend
-        const filename = "screenshot.jpg";
-        const { uploadUrl, readUrl } = await getSignedUrl(token, filename);
+      // 1. Create report first
+      const reportId = await createReport(token, message, category, region);
 
-        // 2. Upload image directly to GCS
+      // 2. If screenshot selected → upload & attach
+      if (image) {
+        const filename = "screenshot.jpg";
+        const { uploadUrl, readUrl } = await getSignedUrl(token, reportId, filename);
+
         await uploadWithSignedUrl(image, uploadUrl);
 
-        // 3. Store permanent read URL
-        evidenceUrls.push(readUrl);
+        await addEvidence(token, reportId, readUrl);
       }
 
-      // 4. Submit report JSON
-      const response = await fetch(`${API_BASE_URL}/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          sender: user.uid,
-          email: user.email || "",
-          message,
-          category,
-          region,
-          evidenceUrls,
-        }),
-      });
-
-      const result = await response.json();
-      if (response.ok && result.ok) {
-        Alert.alert("✅ Success", "Report submitted.");
-        setMessage("");
-        setImage(null);
-      } else {
-        throw new Error(result.error || "Submit failed");
-      }
+      Alert.alert("✅ Success", "Report submitted.");
+      setMessage("");
+      setImage(null);
     } catch (e: any) {
       Alert.alert("Error", e.message);
     } finally {
@@ -133,11 +154,7 @@ export default function Report(): JSX.Element {
         />
 
         <Text style={styles.label}>Select Category</Text>
-        <Picker
-          selectedValue={category}
-          style={styles.picker}
-          onValueChange={setCategory}
-        >
+        <Picker selectedValue={category} style={styles.picker} onValueChange={setCategory}>
           <Picker.Item label="Phishing/Smishing" value="Phishing/Smishing" />
           <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
           <Picker.Item label="Fake Job" value="Fake Job" />
@@ -150,11 +167,7 @@ export default function Report(): JSX.Element {
         </Picker>
 
         <Text style={styles.label}>Select Region</Text>
-        <Picker
-          selectedValue={region}
-          style={styles.picker}
-          onValueChange={setRegion}
-        >
+        <Picker selectedValue={region} style={styles.picker} onValueChange={setRegion}>
           <Picker.Item label="NCR – National Capital Region" value="NCR" />
           <Picker.Item label="Region I – Ilocos Region" value="Region I" />
           <Picker.Item label="Region II – Cagayan Valley" value="Region II" />
@@ -170,10 +183,7 @@ export default function Report(): JSX.Element {
           <Picker.Item label="Region XI – Davao Region" value="Region XI" />
           <Picker.Item label="Region XII – SOCCSKSARGEN" value="Region XII" />
           <Picker.Item label="Region XIII – Caraga" value="Region XIII" />
-          <Picker.Item
-            label="CAR – Cordillera Administrative Region"
-            value="CAR"
-          />
+          <Picker.Item label="CAR – Cordillera Administrative Region" value="CAR" />
           <Picker.Item
             label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao"
             value="BARMM"

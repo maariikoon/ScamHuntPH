@@ -1,7 +1,9 @@
+// functions/index.js
 const { onRequest } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2/options");
 const admin = require("firebase-admin");
 const express = require("express");
+const corsMiddleware = require("./middleware/cors");
 
 // ===== Global options =====
 setGlobalOptions({
@@ -10,33 +12,54 @@ setGlobalOptions({
 });
 
 // ===== Firebase Admin =====
+// Use the BUCKET NAME (appspot.com), not the public host firebasestorage.app
 if (!admin.apps.length) {
   admin.initializeApp({
-    storageBucket: "scamhuntph-b3485.firebasestorage.app",
+    storageBucket: "scamhuntph-b3485-2n5bd",
   });
 }
-const db = admin.firestore();
-
-
-// Health check
-const health = express();
-health.get("/", (req, res) => {
-  res.json({ ok: true, message: "ScamHunt API is alive 🚀" });
-});
-exports.health = onRequest(health);
-
-// ========================================================================
-// ROUTES
-// ========================================================================
-
 
 // ===== Import standalone route apps =====
-const lessons = require("./routes/lessons");
-const reports = require("./routes/reports");
-const analytics = require("./routes/analytics");
+const lessons = require("./routes/lessons");     // exports an express app
+const reports = require("./routes/reports");     // exports an express app
+const analytics = require("./routes/analytics"); // exports an express app
 
+// ------------------------------------------------------------------
+// One consolidated API surface (recommended)
+// ------------------------------------------------------------------
+const api = express();
+api.use(corsMiddleware);
 
-// Export each as a separate Firebase Function
-exports.lessons = onRequest(lessons);
+// Simple root + health
+api.get("/", (_req, res) => {
+  res.json({
+    ok: true,
+    message: "ScamHunt API v1 🚀",
+    routes: ["/reports", "/analytics", "/lessons"],
+  });
+});
+
+// Mount routers
+api.use("/reports", reports);
+api.use("/analytics", analytics);
+api.use("/lessons", lessons);
+
+// JSON 404 (helps catch wrong paths/URLs from the frontend)
+api.use((req, res) => {
+  res.status(404).json({ ok: false, error: "Not found", path: req.path });
+});
+
+// Export the consolidated API
+exports.api = onRequest(api);
+
+// ------------------------------------------------------------------
+// (Optional) Keep the individual functions too
+// ------------------------------------------------------------------
 exports.reports = onRequest(reports);
 exports.analytics = onRequest(analytics);
+exports.lessons  = onRequest(lessons);
+
+// Dedicated health endpoint (optional)
+exports.health = onRequest((req, res) => {
+  res.json({ ok: true, message: "ScamHunt API is alive 🚀" });
+});

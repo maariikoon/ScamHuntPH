@@ -1,28 +1,27 @@
 // src/pages/ReportDetail.tsx
 import { useParams, useNavigate } from '@tanstack/react-router';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Title, Text, Badge, Button, Group, Loader, Alert, Stack,
-  Paper, Divider, Grid, Anchor, Center, Select, Textarea,
+  Paper, Divider, Grid, Anchor, Center
 } from '@mantine/core';
 import { IconArrowLeft, IconShieldCheck, IconMessage2, IconTags } from '@tabler/icons-react';
-import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
 import { getAuth } from 'firebase/auth';
 
 const API_BASE_URL = 'https://reports-bcvrqgcc6a-as.a.run.app';
 
 const CATEGORY_OPTIONS = [
-  { value: 'phishing', label: 'Phishing/Smishing' },
-  { value: 'gcash_scam', label: 'Gcash Scam' },
-  { value: 'delivery_fraud', label: 'Delivery Fraud' },
-  { value: 'fake_job', label: 'Fake Job' },
-  { value: 'loan_scam', label: 'Loan Scam' },
-  { value: 'investment_scam', label: 'Investment Scam' },
-  { value: 'identity_theft', label: 'Identity Theft' },
-  { value: 'lottery_scam', label: 'Lottery Scam' },
-  { value: 'other', label: 'Other' },
+  { value: "phishing", label: "Phishing/Smishing" },
+  { value: "gcash_scam", label: "Gcash Scam" },
+  { value: "delivery_fraud", label: "Delivery Fraud" },
+  { value: "fake_job", label: "Fake Job" },
+  { value: "loan_scam", label: "Loan Scam" },
+  { value: "investment_scam", label: "Investment Scam" },
+  { value: "identity_theft", label: "Identity Theft" },
+  { value: "lottery_scam", label: "Lottery Scam" },
+  { value: "other", label: "Other" },
 ];
+
 
 type Report = {
   id: string;
@@ -34,8 +33,8 @@ type Report = {
   status?: 'pending' | 'verified' | 'declined' | string;
   createdAt?: string | null;
   updatedAt?: string | null;
-  lastActionBy?: string;
-  feedback?: string;
+  lastActionBy?: string;   // admin UID
+  feedback?: string;       // admin notes
 };
 
 async function getIdToken() {
@@ -57,11 +56,12 @@ function statusColor(status?: string) {
 export default function ReportDetail() {
   const { id } = useParams({ from: '/admin/reports/$id' });
   const navigate = useNavigate();
+
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState("");
   const [newCategory, setNewCategory] = useState<string | null>(null);
 
   const created = useMemo(
@@ -72,119 +72,54 @@ export default function ReportDetail() {
     () => (report?.updatedAt ? new Date(report.updatedAt).toLocaleString() : '—'),
     [report?.updatedAt]
   );
+  const reviewed = useMemo(
+    () => (report?.reviewedAt ? new Date(report.reviewedAt).toLocaleString() : null),
+    [report?.reviewedAt]
+  );
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setError(null);
+      setLastStatusCode(null);
       setLoading(true);
       const token = await getIdToken();
       const res = await fetch(`${API_BASE_URL}/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const json = await res.json().catch(() => ({}));
+      const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || 'Failed to load report');
       setReport(json.data);
     } catch (e) {
+      setReport(null);
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  /** Opens a confirm modal, then PATCHes if confirmed */
-  const confirmAndUpdate = (status: 'verified' | 'declined') => {
-    const nextCategory = newCategory || report?.category || 'other';
-    const confirmColor = status === 'verified' ? 'green' : 'red';
-    const confirmLabel = status === 'verified' ? 'Approve' : 'Deny';
-
-    modals.openConfirmModal({
-      centered: true,
-      title: status === 'verified' ? 'Approve this report?' : 'Deny this report?',
-      labels: { confirm: confirmLabel, cancel: 'Cancel' },
-      confirmProps: { color: confirmColor, loading: submitting },
-      children: (
-        <Stack gap="xs">
-          <Text size="sm">
-            {status === 'verified'
-              ? 'Are you sure you want to mark this report as VERIFIED? The reporter will be notified.'
-              : 'Are you sure you want to mark this report as DENIED? The reporter will be notified.'}
-          </Text>
-          <Text size="sm" c="dimmed">
-            Category: <b>{nextCategory}</b>
-          </Text>
-          {feedback?.trim() && (
-            <Text size="sm" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
-              Feedback: {feedback.trim()}
-            </Text>
-          )}
-        </Stack>
-      ),
-      onConfirm: async () => {
-        try {
-          setSubmitting(true);
-
-          const token = await getIdToken();
-          const res = await fetch(`${API_BASE_URL}/${id}/status`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              status,
-              // send both keys for compatibility with either backend shape
-              adminComment: (feedback || '').trim(),
-              feedback: (feedback || '').trim(),
-              category: nextCategory,
-              notify: true,
-            }),
-          });
-
-          const text = await res.text();
-          interface JsonResponse {
-            error?: string;
-          }
-
-          const j: JsonResponse | undefined = (() => { 
-            try { 
-              return JSON.parse(text) as JsonResponse; 
-            } catch { 
-              return undefined; 
-            } 
-          })();
-
-          if (!res.ok) {
-            const msg =
-              (j && j.error) ||
-              (res.status === 403 ? 'Forbidden (admin only)' : `Request failed (${res.status})`);
-            throw new Error(msg);
-          }
-
-          notifications.show({
-            color: status === 'verified' ? 'green' : 'red',
-            title: status === 'verified' ? 'Report verified' : 'Report denied',
-            message:
-              status === 'verified'
-                ? 'The reporter has been notified of the approval.'
-                : 'The reporter has been notified of the denial.',
-          });
-
-          navigate({ to: '/admin/reports' });
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Could not submit decision.';
-          notifications.show({ color: 'red', title: 'Action failed', message: msg });
-          setError(msg);
-        } finally {
-          setSubmitting(false);
-        }
-      },
-    });
+  const updateStatus = async (status: 'verified' | 'declined') => {
+    try {
+      const token = await getIdToken();
+      const res = await fetch(`${API_BASE_URL}/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          status,
+          feedback,
+          category: newCategory || report?.category,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || 'Failed to update status');
+      }
+      navigate({ to: '/admin/reports' });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
   };
+
+  
 
   if (loading) {
     return (
@@ -206,10 +141,21 @@ export default function ReportDetail() {
             Back to Reports
           </Button>
         </Group>
+
         <Alert color="red" title="Couldn’t load report">
           {error}
+          {lastStatusCode === 401 || lastStatusCode === 403 ? (
+            <div style={{ marginTop: 8 }}>
+              <Button size="xs" variant="light" onClick={reauthAndRetry}>
+                Re-authenticate & retry
+              </Button>
+            </div>
+          ) : null}
         </Alert>
-        <Button onClick={load}>Try again</Button>
+
+        <Group>
+          <Button onClick={load}>Try again</Button>
+        </Group>
       </Stack>
     );
   }
@@ -250,7 +196,7 @@ export default function ReportDetail() {
 
       <Paper withBorder p="lg" radius="md" shadow="sm">
         <Stack gap="sm">
-          {/* Sender & meta */}
+          {/* --- Sender & meta FIRST --- */}
           <Grid gutter="md">
             <Grid.Col span={{ base: 12, sm: 6 }}>
               <Text><b>Report ID:</b> {report.id}</Text>
@@ -261,6 +207,9 @@ export default function ReportDetail() {
               <Text><b>Region:</b> {report.region || '—'}</Text>
               <Text><b>Created:</b> {created}</Text>
               <Text><b>Updated:</b> {updated}</Text>
+              {reviewed && (
+                <Text><b>Reviewed:</b> {reviewed} {report.reviewedBy ? `by ${report.reviewedBy}` : ''}</Text>
+              )}
             </Grid.Col>
           </Grid>
 
@@ -284,13 +233,27 @@ export default function ReportDetail() {
 
           <Divider my="sm" />
 
-          {/* Message */}
+
+          {/* --- Message LAST --- */}
           <Text>
             <b>Message:</b>{' '}
             <Text span style={{ whiteSpace: 'pre-wrap' }}>
               {report.message || '—'}
             </Text>
           </Text>
+
+          {/* Admin Feedback */}
+          {report.adminComment ? (
+            <>
+              <Divider my="sm" />
+              <Paper withBorder radius="md" p="md">
+                <Text fw={600}>Admin Feedback</Text>
+                <Text size="sm" c="dimmed" mt={4} style={{ whiteSpace: 'pre-wrap' }}>
+                  {report.adminComment}
+                </Text>
+              </Paper>
+            </>
+          ) : null}
         </Stack>
       </Paper>
 
