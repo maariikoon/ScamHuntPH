@@ -1,17 +1,29 @@
 // src/main.tsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { MantineProvider, Center, Loader, Stack, Text, Button } from "@mantine/core";
+import {
+  MantineProvider,
+  Center,
+  Loader,
+  Stack,
+  Text,
+  Button,
+} from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
+import { ModalsProvider } from "@mantine/modals";
 import AppRouter from "@/router";
 import { AuthProvider } from "@/auth";
 
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
+
 import "@/styles.css";
 
 // Simple error boundary to surface any runtime errors instead of a white screen
-class RouteErrorBoundary extends React.Component<{children: React.ReactNode}, {error: Error | null}> {
+class RouteErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { error: null };
@@ -54,21 +66,24 @@ const theme = {
 export function Root() {
   return (
     <MantineProvider defaultColorScheme="light" theme={theme}>
-      <Notifications position="top-right" />
-      <AuthProvider>
-        {/* Wrap lazy routes/components to avoid blank screen while they load */}
-        <React.Suspense
-          fallback={
-            <Center style={{ minHeight: "100vh" }}>
-              <Loader />
-            </Center>
-          }
-        >
-          <RouteErrorBoundary>
-            <AppRouter />
-          </RouteErrorBoundary>
-        </React.Suspense>
-      </AuthProvider>
+      {/* 👇 Wrap app with ModalsProvider so modals.openConfirmModal works */}
+      <ModalsProvider>
+        <Notifications position="top-right" />
+        <AuthProvider>
+          {/* Wrap lazy routes/components to avoid blank screen while they load */}
+          <React.Suspense
+            fallback={
+              <Center style={{ minHeight: "100vh" }}>
+                <Loader />
+              </Center>
+            }
+          >
+            <RouteErrorBoundary>
+              <AppRouter />
+            </RouteErrorBoundary>
+          </React.Suspense>
+        </AuthProvider>
+      </ModalsProvider>
     </MantineProvider>
   );
 }

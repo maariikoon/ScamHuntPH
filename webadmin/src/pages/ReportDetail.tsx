@@ -6,22 +6,23 @@ import {
   Paper, Divider, Grid, Anchor, Center, Select, Textarea,
 } from '@mantine/core';
 import { IconArrowLeft, IconShieldCheck, IconMessage2, IconTags } from '@tabler/icons-react';
+import { modals } from '@mantine/modals';
+import { notifications } from '@mantine/notifications';
 import { getAuth } from 'firebase/auth';
 
 const API_BASE_URL = 'https://reports-bcvrqgcc6a-as.a.run.app';
 
 const CATEGORY_OPTIONS = [
-  { value: "phishing", label: "Phishing/Smishing" },
-  { value: "gcash_scam", label: "Gcash Scam" },
-  { value: "delivery_fraud", label: "Delivery Fraud" },
-  { value: "fake_job", label: "Fake Job" },
-  { value: "loan_scam", label: "Loan Scam" },
-  { value: "investment_scam", label: "Investment Scam" },
-  { value: "identity_theft", label: "Identity Theft" },
-  { value: "lottery_scam", label: "Lottery Scam" },
-  { value: "other", label: "Other" },
+  { value: 'phishing', label: 'Phishing/Smishing' },
+  { value: 'gcash_scam', label: 'Gcash Scam' },
+  { value: 'delivery_fraud', label: 'Delivery Fraud' },
+  { value: 'fake_job', label: 'Fake Job' },
+  { value: 'loan_scam', label: 'Loan Scam' },
+  { value: 'investment_scam', label: 'Investment Scam' },
+  { value: 'identity_theft', label: 'Identity Theft' },
+  { value: 'lottery_scam', label: 'Lottery Scam' },
+  { value: 'other', label: 'Other' },
 ];
-
 
 type Report = {
   id: string;
@@ -33,26 +34,23 @@ type Report = {
   status?: 'pending' | 'verified' | 'declined' | string;
   createdAt?: string | null;
   updatedAt?: string | null;
-  lastActionBy?: string;   // admin UID
-  feedback?: string;       // admin notes
+  lastActionBy?: string;
+  feedback?: string;
 };
 
 async function getIdToken() {
-  const auth = getAuth();
-  const user = auth.currentUser;
+  const user = getAuth().currentUser;
   if (!user) throw new Error('Not authenticated');
-  return user.getIdToken();
+  // force refresh so latest custom claims are present
+  return user.getIdToken(true);
 }
 
 function statusColor(status?: string) {
   switch ((status || '').toLowerCase()) {
-    case 'verified':
-      return 'green';
-    case 'declined':
-      return 'red';
+    case 'verified': return 'green';
+    case 'declined': return 'red';
     case 'pending':
-    default:
-      return 'blue';
+    default: return 'blue';
   }
 }
 
@@ -61,8 +59,9 @@ export default function ReportDetail() {
   const navigate = useNavigate();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState("");
+  const [feedback, setFeedback] = useState('');
   const [newCategory, setNewCategory] = useState<string | null>(null);
 
   const created = useMemo(
@@ -82,7 +81,7 @@ export default function ReportDetail() {
       const res = await fetch(`${API_BASE_URL}/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.ok) throw new Error(json.error || 'Failed to load report');
       setReport(json.data);
     } catch (e) {
@@ -97,29 +96,95 @@ export default function ReportDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const updateStatus = async (status: 'verified' | 'declined') => {
-    try {
-      const token = await getIdToken();
-      const res = await fetch(`${API_BASE_URL}/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          status,
-          feedback,
-          category: newCategory || report?.category,
-        }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || 'Failed to update status');
-      }
-      navigate({ to: '/admin/reports' });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  };
+  /** Opens a confirm modal, then PATCHes if confirmed */
+  const confirmAndUpdate = (status: 'verified' | 'declined') => {
+    const nextCategory = newCategory || report?.category || 'other';
+    const confirmColor = status === 'verified' ? 'green' : 'red';
+    const confirmLabel = status === 'verified' ? 'Approve' : 'Deny';
 
-  
+    modals.openConfirmModal({
+      centered: true,
+      title: status === 'verified' ? 'Approve this report?' : 'Deny this report?',
+      labels: { confirm: confirmLabel, cancel: 'Cancel' },
+      confirmProps: { color: confirmColor, loading: submitting },
+      children: (
+        <Stack gap="xs">
+          <Text size="sm">
+            {status === 'verified'
+              ? 'Are you sure you want to mark this report as VERIFIED? The reporter will be notified.'
+              : 'Are you sure you want to mark this report as DENIED? The reporter will be notified.'}
+          </Text>
+          <Text size="sm" c="dimmed">
+            Category: <b>{nextCategory}</b>
+          </Text>
+          {feedback?.trim() && (
+            <Text size="sm" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+              Feedback: {feedback.trim()}
+            </Text>
+          )}
+        </Stack>
+      ),
+      onConfirm: async () => {
+        try {
+          setSubmitting(true);
+
+          const token = await getIdToken();
+          const res = await fetch(`${API_BASE_URL}/${id}/status`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              status,
+              // send both keys for compatibility with either backend shape
+              adminComment: (feedback || '').trim(),
+              feedback: (feedback || '').trim(),
+              category: nextCategory,
+              notify: true,
+            }),
+          });
+
+          const text = await res.text();
+          interface JsonResponse {
+            error?: string;
+          }
+
+          const j: JsonResponse | undefined = (() => { 
+            try { 
+              return JSON.parse(text) as JsonResponse; 
+            } catch { 
+              return undefined; 
+            } 
+          })();
+
+          if (!res.ok) {
+            const msg =
+              (j && j.error) ||
+              (res.status === 403 ? 'Forbidden (admin only)' : `Request failed (${res.status})`);
+            throw new Error(msg);
+          }
+
+          notifications.show({
+            color: status === 'verified' ? 'green' : 'red',
+            title: status === 'verified' ? 'Report verified' : 'Report denied',
+            message:
+              status === 'verified'
+                ? 'The reporter has been notified of the approval.'
+                : 'The reporter has been notified of the denial.',
+          });
+
+          navigate({ to: '/admin/reports' });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Could not submit decision.';
+          notifications.show({ color: 'red', title: 'Action failed', message: msg });
+          setError(msg);
+        } finally {
+          setSubmitting(false);
+        }
+      },
+    });
+  };
 
   if (loading) {
     return (
@@ -185,7 +250,7 @@ export default function ReportDetail() {
 
       <Paper withBorder p="lg" radius="md" shadow="sm">
         <Stack gap="sm">
-          {/* --- Sender & meta FIRST --- */}
+          {/* Sender & meta */}
           <Grid gutter="md">
             <Grid.Col span={{ base: 12, sm: 6 }}>
               <Text><b>Report ID:</b> {report.id}</Text>
@@ -201,7 +266,7 @@ export default function ReportDetail() {
 
           <Divider my="sm" />
 
-          {/* --- Attachments --- */}
+          {/* Attachments */}
           <Stack gap={6}>
             <Text fw={600}>Attachments:</Text>
             {report.attachments?.length ? (
@@ -219,8 +284,7 @@ export default function ReportDetail() {
 
           <Divider my="sm" />
 
-
-          {/* --- Message LAST --- */}
+          {/* Message */}
           <Text>
             <b>Message:</b>{' '}
             <Text span style={{ whiteSpace: 'pre-wrap' }}>
@@ -232,42 +296,22 @@ export default function ReportDetail() {
 
       <Divider my="sm" />
 
-      {/* --- Review Info --- */}
+      {/* Review Info */}
       <Stack gap="xs">
-        <Text fw={700} size="lg" c="#1338BE">
-          Admin Review
-        </Text>
-
+        <Text fw={700} size="lg" c="#1338BE">Admin Review</Text>
+        <Text ml="md"><b>Status updated to:</b> {(report.status || '—').toUpperCase()}</Text>
+        <Text ml="md"><b>Category set to:</b> {report.category || '—'}</Text>
+        <Text ml="md"><b>Reviewed by:</b> {report.lastActionBy || '—'}</Text>
+        <Text ml="md"><b>Reviewed on:</b> {report.updatedAt ? new Date(report.updatedAt).toLocaleString() : '—'}</Text>
         <Text ml="md">
-          <b>Status updated to:</b>{" "}
-          {(report.status || "—").toUpperCase()}
-        </Text>
-
-        <Text ml="md">
-          <b>Category set to:</b>{" "}
-          {report.category || "—"}
-        </Text>
-
-        <Text ml="md">
-          <b>Reviewed by:</b> {report.lastActionBy || "—"}
-        </Text>
-
-        <Text ml="md">
-          <b>Reviewed on:</b>{" "}
-          {report.updatedAt ? new Date(report.updatedAt).toLocaleString() : "—"}
-        </Text>
-
-        <Text ml="md">
-          <b>Feedback:</b>{" "}
-          <Text span style={{ whiteSpace: "pre-wrap" }}>
-            {report.feedback || "—"}
-          </Text>
+          <b>Feedback:</b>{' '}
+          <Text span style={{ whiteSpace: 'pre-wrap' }}>{report.feedback || '—'}</Text>
         </Text>
       </Stack>
 
       <Divider my="sm" />
 
-      {/* --- Admin inputs --- */}
+      {/* Admin inputs */}
       <Textarea
         label="Admin Feedback"
         placeholder="Add notes for this report"
@@ -281,23 +325,23 @@ export default function ReportDetail() {
       <Select
         label="Category"
         data={CATEGORY_OPTIONS}
-        value={newCategory || report?.category || "other"}
+        value={newCategory ?? report?.category ?? 'other'}
         onChange={setNewCategory}
         mt="md"
-        leftSection={<IconTags size={18} stroke={1.5} />} 
+        leftSection={<IconTags size={18} stroke={1.5} />}
       />
 
       <Group mt="xs">
         <Button
-          onClick={() => updateStatus('verified')}
-          disabled={isVerified}
+          onClick={() => confirmAndUpdate('verified')}
+          disabled={isVerified || submitting}
           color="green"
         >
           Approve
         </Button>
         <Button
-          onClick={() => updateStatus('declined')}
-          disabled={(report.status || '').toLowerCase() === 'declined'}
+          onClick={() => confirmAndUpdate('declined')}
+          disabled={(report.status || '').toLowerCase() === 'declined' || submitting}
           color="red"
           variant="light"
         >
