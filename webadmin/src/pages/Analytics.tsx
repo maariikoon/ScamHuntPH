@@ -18,6 +18,8 @@ type ReportRow = {
   category?: string;
   status?: string;
   sender?: string;
+  userId?: string;
+  senderId?: string;
 };
 
 type UserRow = {
@@ -40,6 +42,9 @@ type ListResp<T> = { ok: boolean; data?: T };
 /* --------------- Helpers --------------- */
 const fmtMonth = new Intl.DateTimeFormat("en-PH", { month: "short", year: "2-digit" });
 const fmtDate = new Intl.DateTimeFormat("en-PH", { month: "short", day: "2-digit" });
+// --- add helper near your other helpers ---
+
+// Removed unused function uniqueReportersSince
 
 // Authenticated fetch with safe JSON parsing
 async function apiFetch<T = unknown>(
@@ -124,11 +129,15 @@ export default function Analytics() {
     [monthStart, reports]
   );
 
-  const activeUsers = React.useMemo(() => {
+// --- replace your activeUsers useMemo with this one ---
+const activeUsers = React.useMemo(() => {
+  // If backend provided users with signals, use them
+  if (users.length > 0) {
     const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
     const nowTs = now.getTime();
+
     if (users.some((u) => typeof u.active === "boolean")) {
-      return users.filter((u) => u.active).length;
+      return users.filter((u) => u.active === true).length;
     }
     if (users.some((u) => u.lastActiveAt)) {
       return users.filter((u) => {
@@ -136,8 +145,14 @@ export default function Analytics() {
         return d && nowTs - d.getTime() <= THIRTY_DAYS;
       }).length;
     }
+    // fallback if users exist but have no signals
     return users.length;
-  }, [now, users]);
+  }
+
+  // ✅ No users from API? Derive from reports:
+  // “Active” ≈ count of unique reporters this month
+  return uniqueReportersSince(reports, monthStart);
+}, [users, reports, monthStart, now]);
 
   // Category split
   const byCategory = React.useMemo(() => {
@@ -402,4 +417,14 @@ export default function Analytics() {
       )}
     </>
   );
+}
+function uniqueReportersSince(reports: ReportRow[], since: Date): number {
+  const uniqueReporters = new Set<string>();
+  for (const report of reports) {
+    const createdAt = toDate(report.createdAt);
+    if (createdAt && createdAt >= since && report.senderId) {
+      uniqueReporters.add(report.senderId);
+    }
+  }
+  return uniqueReporters.size;
 }

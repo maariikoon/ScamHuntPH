@@ -4,9 +4,10 @@ import { useNavigate } from '@tanstack/react-router';
 import {
   Card, TextInput, PasswordInput, Button, Title, Text, Stack, Group, ThemeIcon, Alert,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { IconLock, IconShieldCheck, IconEye } from '@tabler/icons-react';
 import { auth } from '@/firebase';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
 function friendlyError(err: unknown): string {
   const e = err as { code?: string; message?: string };
@@ -36,22 +37,33 @@ export default function AdminLogin() {
     setLoading(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-      // Refresh claims so new promotions take effect immediately
-      const tok = await cred.user.getIdTokenResult(true);
-      const role = (tok.claims.role as string | undefined) || null;
-      const mustChange = Boolean(tok.claims.mustChange);
 
-      if (role === 'admin' || role === 'superadmin') {
-        if (mustChange) {
-          navigate({ to: '/admin/change-password' });
-        } else {
-          navigate({ to: '/admin' });
-        }
-      } else {
+      // Force-refresh token so new claims (e.g., role upgrades) apply immediately
+      const tokenResult = await cred.user.getIdTokenResult(true);
+      const claims = tokenResult.claims as Record<string, unknown>;
+      const role = (claims.role as string | undefined) ?? null;
+      const isAdmin =
+        role === 'admin' || role === 'super_admin' || (claims.admin as boolean | undefined) === true;
+
+      if (!isAdmin) {
         // Not an admin → deny and sign out
         await signOut(auth);
         setError('This account is not authorized for the Admin Dashboard.');
+        return;
       }
+
+      // Optional enforcement: if backend set mustChange=true, email a reset link
+      const mustChange = Boolean(claims.mustChange);
+      if (mustChange && cred.user.email) {
+        await sendPasswordResetEmail(auth, cred.user.email);
+        notifications.show({
+          title: 'Password update required',
+          message: 'We sent a password reset link to your email.',
+        });
+      }
+
+      // Go to Admin root (we removed the change-password route)
+      navigate({ to: '/admin' as const });
     } catch (e) {
       setError(friendlyError(e));
     } finally {
@@ -81,7 +93,9 @@ export default function AdminLogin() {
       >
         <Stack gap="lg">
           <Group gap="sm">
-            <ThemeIcon size="lg" radius="xl" variant="light"><IconShieldCheck /></ThemeIcon>
+            <ThemeIcon size="lg" radius="xl" variant="light">
+              <IconShieldCheck />
+            </ThemeIcon>
             <div>
               <Title order={2} style={{ fontWeight: 800, fontSize: 28, lineHeight: 1.2 }}>
                 Admin Access
@@ -124,10 +138,11 @@ export default function AdminLogin() {
           </form>
 
           <Text ta="center" c="dimmed" style={{ fontSize: 12 }}>
-            Need access? Ask a superadmin to grant your role.
+            Need access? Ask a super admin to grant your role.
           </Text>
         </Stack>
       </Card>
     </div>
   );
 }
+

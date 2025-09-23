@@ -1,32 +1,13 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Grid,
-  Group,
-  Select,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-  Menu,
+  Alert, Badge, Button, Card, Grid, Group, Select, Stack, Text, TextInput, Title, Menu,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import {
-  collection,
-  getCountFromServer,
-  getDocs,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  Timestamp,
-  where,
-  type QueryConstraint,
+  collection, getDocs, limit, onSnapshot, orderBy, query, Timestamp, where, type QueryConstraint,
 } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth'; // ✅ new
 import { db } from '@/firebase';
 import StatCard from '@/components/StatCard';
 import { Download, Filter, RefreshCw } from 'lucide-react';
@@ -35,6 +16,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import jsPDF from 'jspdf';
+import { getFreshIdToken } from '@/utils/token'; // ✅ uses your existing token util
 
 // --- Types ---
 type Stats = {
@@ -62,6 +44,18 @@ const REGION_OPTIONS = [
   'Region VII','Region VIII','Region IX','Region X','Region XI','Region XII','CAR','BARMM',
 ];
 
+// ✅ backend base for admin endpoints
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'https://scamhunt-bcvrqgcc6a-as.a.run.app';
+
+// Small helper to call backend with ID token
+async function fetchOverview() {
+  const idToken = await getFreshIdToken();
+  const r = await fetch(`${API_BASE_URL}/admin/overview`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  return r.json();
+}
+
 export default function Dashboard() {
   // ---- cards state ----
   const [stats, setStats] = useState<Stats>({
@@ -86,6 +80,14 @@ export default function Dashboard() {
 
   const alive = useRef(true);
   const mountedAt = useRef<number>(Date.now());
+  const auth = getAuth();
+
+  // ✅ ensure latest custom claims (admin) are on the token
+  useEffect(() => {
+    (async () => { try { await auth.currentUser?.getIdToken(true); } catch { /* Handle error if needed */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---- helpers ----
   const buildReportConstraints = useCallback((): QueryConstraint[] => {
@@ -103,28 +105,29 @@ export default function Dashboard() {
     return cons;
   }, [status, dateRange, category, region]);
 
-  // ---- load top cards (always all-time, not filtered) ----
+  // 🔁 wrap Firestore calls to retry once after a forced token refresh
+  async function withPermRetry<T>(fn: () => Promise<T>): Promise<T> {
+    try { return await fn(); }
+    catch (e: unknown) {
+      const error = e as { code?: string; message?: string };
+      const msg = `${error?.code ?? ''} ${error?.message ?? e}`;
+      if (msg.includes('permission') || msg.includes('insufficient')) {
+        await auth.currentUser?.getIdToken(true);
+        return await fn();
+      }
+      throw e;
+    }
+  }
+
+  // ---- load top cards (server-side to bypass rules) ----
   const loadCards = async () => {
     setErr(null);
     setLoadingCards(true);
     try {
-      const reportsCol = collection(db, 'reports');
-      const usersCol = collection(db, 'users');
-
-      const [total, pending, verified, users] = await Promise.all([
-        getCountFromServer(reportsCol),
-        getCountFromServer(query(reportsCol, where('status', '==', 'pending'))),
-        getCountFromServer(query(reportsCol, where('status', '==', 'verified'))),
-        getCountFromServer(usersCol),
-      ]);
-
+      const res = await fetchOverview();
+      if (!res?.ok) throw new Error(res?.error || 'Failed to load overview');
       if (!alive.current) return;
-      setStats({
-        totalReports: total.data().count,
-        pendingReviews: pending.data().count,
-        verifiedReports: verified.data().count,
-        activeUsers: users.data().count,
-      });
+      setStats(res.data);
     } catch (e: unknown) {
       if (!alive.current) return;
       setErr(e instanceof Error ? e.message : String(e));
@@ -138,7 +141,7 @@ export default function Dashboard() {
     setLoadingData(true);
     try {
       const cons = buildReportConstraints();
-      const snap = await getDocs(query(collection(db, 'reports'), ...cons));
+      const snap = await withPermRetry(() => getDocs(query(collection(db, 'reports'), ...cons)));
       let items: Report[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Partial<Report>) }));
 
       // simple client search across id/category/region
@@ -151,10 +154,13 @@ export default function Dashboard() {
 
       if (!alive.current) return;
       setFilteredReports(items);
+    } catch (e: unknown) {
+      if (!alive.current) return;
+      setErr(e instanceof Error ? e.message : String(e));
+      setFilteredReports([]);
     } finally {
       if (alive.current) setLoadingData(false);
     }
-  // 🔧 this line was missing: close useCallback with its deps
   }, [buildReportConstraints, search]);
 
   // initial + whenever filters change (via memoized callback)
@@ -162,28 +168,37 @@ export default function Dashboard() {
     alive.current = true;
     loadCards();
     loadFiltered();
-    return () => {
-      alive.current = false;
-    };
+    return () => { alive.current = false; };
   }, [loadFiltered]);
 
   // ---- realtime notification for new reports ----
   useEffect(() => {
     const cons: QueryConstraint[] = [orderBy('createdAt', 'desc'), limit(1)];
-    const unsub = onSnapshot(query(collection(db, 'reports'), ...cons), (snap) => {
-      const doc = snap.docs[0];
-      if (!doc) return;
-      const data = doc.data() as Report;
-      const ts = (data.createdAt as Timestamp | undefined)?.toMillis?.() ?? Date.now();
-      if (ts > mountedAt.current + 2500) {
-        notifications.show({
-          title: 'New report received',
-          message: `A new ${data.category ?? 'report'} was submitted.`,
-        });
+    const unsub = onSnapshot(
+      query(collection(db, 'reports'), ...cons),
+      {
+        next: (snap) => {
+          const doc = snap.docs[0];
+          if (!doc) return;
+          const data = doc.data() as Report;
+          const ts = (data.createdAt as Timestamp | undefined)?.toMillis?.() ?? Date.now();
+          if (ts > mountedAt.current + 2500) {
+            notifications.show({
+              title: 'New report received',
+              message: `A new ${data.category ?? 'report'} was submitted.`,
+            });
+          }
+        },
+        error: async (err) => {
+          const msg = `${err?.code ?? ''} ${err?.message ?? err}`;
+          if (msg.includes('permission') || msg.includes('insufficient')) {
+            await auth.currentUser?.getIdToken(true);
+          }
+        },
       }
-    });
+    );
     return () => unsub();
-  }, []);
+  }, [auth]);
 
   // ---- charts data ----
   const lineData = useMemo(() => {
