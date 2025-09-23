@@ -235,52 +235,19 @@ app.get("/:id", requireAuth, async (req, res) => {
 // 🔹 Update report status (ADMIN) + feedback + push notify
 app.patch("/:id/status", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const id = req.params.id;
-    const body = req.body || {};
-    const status = String(body.status || "");
-    const notify = body && body.notify ? true : false;
-    const adminComment = (typeof body.adminComment === "string") ? body.adminComment : "";
-
-    if (!(status === "verified" || status === "declined")) {
+    const { status, note } = req.body || {};
+    const allowedStatuses = ["pending", "verified", "declined"];
+    if (!status || !allowedStatuses.includes(status)) {
       return res.status(400).json({ ok: false, error: "Invalid status" });
     }
 
-    const ref = db.collection("reports").doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) return res.status(404).json({ ok: false, error: "Report not found" });
-
-    const now = admin.firestore.FieldValue.serverTimestamp();
-    const reviewer = (req && req.user && req.user.uid) ? req.user.uid : null;
-
-    const updateData = {
-      status: status,
-      adminComment: adminComment,
-      reviewedBy: reviewer,
-      reviewedAt: now,
-      updatedAt: now,
-      lastActionBy: reviewer,
-    };
-    if (adminComment) updateData.lastActionNote = adminComment;
-
-    await ref.update(updateData);
-
-    if (notify) {
-      const data = snap.data() || {};
-      const senderUid = data.sender || data.userId || data.senderId || null;
-      if (senderUid) {
-        const title = status === "verified" ? "✅ Report Approved" : "❌ Report Denied";
-        const bodyText =
-          adminComment ||
-          (status === "verified"
-            ? "Thanks for helping the community stay safe."
-            : "Please see feedback and update your report.");
-
-        await admin.messaging().sendToTopic("user_" + senderUid, {
-          notification: { title: title, body: bodyText },
-          data: { type: "report_review", reportId: String(id), status: status },
-        });
-      }
-    }
+    const ref = db.collection("reports").doc(req.params.id);
+    await ref.update({
+      status: String(status),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastActionBy: req.user.uid,
+      ...(note ? { lastActionNote: String(note) } : {}),
+    });
 
     return res.json({ ok: true });
   } catch (e) {

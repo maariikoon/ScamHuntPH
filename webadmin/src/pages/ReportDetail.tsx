@@ -3,13 +3,12 @@ import { useParams, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Title, Text, Badge, Button, Group, Loader, Alert, Stack,
-  Paper, Divider, Grid, Anchor, Center, Textarea
+  Paper, Divider, Grid, Anchor, Center
 } from '@mantine/core';
 import { IconArrowLeft, IconShieldCheck } from '@tabler/icons-react';
-import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
-import { REPORTS_BASE, authFetch } from '@/utils/api';
-import { getFreshIdToken } from '@/utils/token';
+import { getAuth } from 'firebase/auth';
+
+const API_BASE_URL = 'https://reports-bcvrqgcc6a-as.a.run.app';
 
 type Report = {
   id: string;
@@ -21,10 +20,14 @@ type Report = {
   status?: 'pending' | 'verified' | 'declined' | string;
   createdAt?: string | null;
   updatedAt?: string | null;
-  adminComment?: string;
-  reviewedBy?: string;
-  reviewedAt?: string | null;
 };
+
+async function getIdToken() {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+  return user.getIdToken();
+}
 
 function statusColor(status?: string) {
   switch ((status || '').toLowerCase()) {
@@ -43,7 +46,6 @@ export default function ReportDetail() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastStatusCode, setLastStatusCode] = useState<number | null>(null);
 
   const created = useMemo(
     () => (report?.createdAt ? new Date(report.createdAt).toLocaleString() : '—'),
@@ -83,91 +85,25 @@ export default function ReportDetail() {
     }
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
-
-  const reauthAndRetry = async () => {
+  const updateStatus = async (status: 'verified' | 'declined') => {
     try {
-      await getFreshIdToken(); // force-refresh token/claims
-    } catch {/* ignore */}
-    await load();
+      const token = await getIdToken();
+      const res = await fetch(`${API_BASE_URL}/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || 'Failed to update status');
+      }
+      navigate({ to: '/admin/reports' });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
   };
 
-  const confirmAndUpdate = (status: 'verified' | 'declined') => {
-    let feedback = report?.adminComment ?? '';
-
-    modals.openConfirmModal({
-      centered: true,
-      title: status === 'verified' ? 'Approve this report?' : 'Deny this report?',
-      labels: { confirm: status === 'verified' ? 'Approve' : 'Deny', cancel: 'Cancel' },
-      confirmProps: { color: status === 'verified' ? 'green' : 'red', loading: submitting },
-      children: (
-        <Stack gap="xs">
-          <Text size="sm">
-            {status === 'verified'
-              ? 'Are you sure you want to mark this report as VERIFIED? The reporter will be notified.'
-              : 'Are you sure you want to mark this report as DENIED? The reporter will be notified.'}
-          </Text>
-          <Textarea
-            label="Feedback to the reporter (optional)"
-            placeholder={
-              status === 'verified'
-                ? 'Thank you. This matches a known phishing pattern. We’re taking action.'
-                : 'We can’t verify due to missing details. Please attach screenshots/links.'
-            }
-            defaultValue={feedback}
-            autosize
-            minRows={3}
-            onChange={(e) => { feedback = e.currentTarget.value; }}
-          />
-        </Stack>
-      ),
-      onConfirm: async () => {
-        try {
-          setSubmitting(true);
-
-          const r = await authFetch<{ ok: boolean; error?: string }>(
-            `${REPORTS_BASE}/${id}/status`,
-            {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                status,
-                adminComment: (feedback || '').trim(),
-                notify: true,
-              }),
-            }
-          );
-
-          if (!r.ok) {
-            const msg =
-              (r.data as { error?: string })?.error ||
-              (r.status === 401
-                ? 'Not authenticated. Please re-authenticate and try again.'
-                : r.status === 403
-                ? 'Forbidden (admin only). Sign out/in to refresh your admin token or ensure your role is set.'
-                : `Request failed (${r.status})`);
-            throw new Error(msg);
-          }
-
-          notifications.show({
-            color: status === 'verified' ? 'green' : 'red',
-            title: status === 'verified' ? 'Report verified' : 'Report denied',
-            message:
-              status === 'verified'
-                ? 'The reporter has been notified of the approval.'
-                : 'The reporter has been notified of the denial.',
-          });
-
-          navigate({ to: '/admin/reports' });
-        } catch (e: unknown) {
-          const errorMessage = e instanceof Error ? e.message : 'Could not submit decision.';
-          notifications.show({ color: 'red', title: 'Action failed', message: errorMessage });
-        } finally {
-          setSubmitting(false);
-        }
-      },
-    });
-  };
+  
 
   if (loading) {
     return (
@@ -281,6 +217,7 @@ export default function ReportDetail() {
 
           <Divider my="sm" />
 
+
           {/* Message */}
           <Text>
             <b>Message:</b>{' '}
@@ -303,6 +240,63 @@ export default function ReportDetail() {
           ) : null}
         </Stack>
       </Paper>
+
+      <Divider my="sm" />
+
+      {/* --- Review Info --- */}
+      <Stack gap="xs">
+        <Text fw={700} size="lg" c="#1338BE">
+          Admin Review
+        </Text>
+
+        <Text ml="md">
+          <b>Status updated to:</b>{" "}
+          {(report.status || "—").toUpperCase()}
+        </Text>
+
+        <Text ml="md">
+          <b>Category set to:</b>{" "}
+          {report.category || "—"}
+        </Text>
+
+        <Text ml="md">
+          <b>Reviewed by:</b> {report.lastActionBy || "—"}
+        </Text>
+
+        <Text ml="md">
+          <b>Reviewed on:</b>{" "}
+          {report.updatedAt ? new Date(report.updatedAt).toLocaleString() : "—"}
+        </Text>
+
+        <Text ml="md">
+          <b>Feedback:</b>{" "}
+          <Text span style={{ whiteSpace: "pre-wrap" }}>
+            {report.feedback || "—"}
+          </Text>
+        </Text>
+      </Stack>
+
+      <Divider my="sm" />
+
+      {/* --- Admin inputs --- */}
+      <Textarea
+        label="Admin Feedback"
+        placeholder="Add notes for this report"
+        value={feedback}
+        onChange={(e) => setFeedback(e.currentTarget.value)}
+        autosize
+        minRows={3}
+        leftSection={<IconMessage2 size={18} stroke={1.5} />}
+      />
+
+      <Select
+        label="Category"
+        data={CATEGORY_OPTIONS}
+        value={newCategory || report?.category || "other"}
+        onChange={setNewCategory}
+        mt="md"
+        leftSection={<IconTags size={18} stroke={1.5} />} 
+      />
 
       <Group mt="xs">
         <Button

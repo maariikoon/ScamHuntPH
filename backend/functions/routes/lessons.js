@@ -10,6 +10,11 @@ const db = admin.firestore();
 
 const { tsToIso } = require("../utils/helpers");
 
+// ========================================================================
+// LESSONS ROUTES
+// ========================================================================
+
+console.log("📩 POST /lessons handler registered");
 // 🔹 Get all published lessons
 app.get("/", async (req, res) => {
   try {
@@ -23,7 +28,11 @@ app.get("/", async (req, res) => {
       const v = doc.data();
       return {
         id: doc.id,
-        ...v,
+        title: v.title,
+        category: v.category,
+        published: v.published,
+        // ✅ only send shortDescription
+        shortDescription: v.shortDescription || "",
         createdAt: tsToIso(v.createdAt),
         updatedAt: tsToIso(v.updatedAt),
       };

@@ -11,6 +11,7 @@ app.use(corsMiddleware);
 // ANALYTICS ROUTES
 // ========================================================================
 
+console.log("📩 POST /analytics handler registered");
 // 🔹 Overview endpoint
 app.get("/overview", requireAuth, async (req, res) => {
   try {

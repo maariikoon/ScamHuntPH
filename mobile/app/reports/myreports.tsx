@@ -61,8 +61,9 @@ export default function UserReport() {
     <View style={styles.reportItem}>
       <Text style={styles.message}>{item.message}</Text>
       <Text style={styles.meta}>
-        {item.category} · {item.region}
+        Category: {item.category || "—"} · {item.region || "—"}
       </Text>
+
       <Text
         style={[
           styles.status,
@@ -75,6 +76,20 @@ export default function UserReport() {
       >
         Status: {item.status}
       </Text>
+
+      {/* ✅ Show feedback if available */}
+      {item.feedback && (
+        <Text style={styles.feedback}>Feedback: {item.feedback}</Text>
+      )}
+
+      {/* ✅ Show updated date if available */}
+      {item.updatedAt && (
+        <Text style={styles.date}>
+          Last Updated: {new Date(item.updatedAt).toLocaleString()}
+        </Text>
+      )}
+
+      {/* Keep submitted date */}
       {item.createdAt && (
         <Text style={styles.date}>
           Submitted: {new Date(item.createdAt).toLocaleString()}
@@ -258,5 +273,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 20,
     color: "#777",
+  },
+  feedback: {
+  fontSize: 14,
+  color: "#333",
+  marginBottom: 4,
   },
 });

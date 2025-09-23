@@ -45,11 +45,13 @@ type ViewLesson = {
 
 const CATEGORIES = [
   "gcash_scam",
-  "phishing",
+  "phishing/smishing",
   "delivery_fraud",
   "investment_scam",
+  "fake_job",
   "loan_scam",
   "identity_theft",
+  "lottery_scam",
   "other",
 ];
 

@@ -7,7 +7,7 @@ export default function Alerts() {
     <View style={styles.container}>
 
       {/* Navigate to Your Reports */}
-      <Link href="/reports" asChild>
+      <Link href="/reports/myreports" asChild>
         <TouchableOpacity style={styles.card}>
           <Text style={styles.emoji}>📄</Text>
           <Text style={styles.cardText}>Your Reports</Text>
