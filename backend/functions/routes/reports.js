@@ -71,26 +71,24 @@ console.log("📩 POST /reports handler registered");
 app.post("/", requireAuth, async (req, res) => {
   try {
     const body = req.body || {};
-    const sender = body.sender;
+    const sender = req.user.uid;
     const message = body.message;
     const category = body.category;
     const region = body.region;
     const evidenceUrls = body.evidenceUrls;
 
-    if (!sender || !message) {
-      return res.status(400).json({ ok: false, error: "Sender and message are required" });
-    }
+    if (!message) return res.status(400).json({ ok: false, error: "Message is required" });
 
     const reportId = uuidv4();
 
     await db.collection("reports").doc(reportId).set({
       userId: req.user.uid,
-      sender: req.user.uid,
-      message: message,
+      sender,
+      message,
       category: category || "Others",
       region: region || "N/A",
       status: "pending",
-      attachments: Array.isArray(evidenceUrls) ? evidenceUrls : [],
+      attachments: [],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -105,32 +103,57 @@ app.post("/", requireAuth, async (req, res) => {
 app.post("/uploadUrl", requireAuth, async (req, res) => {
   try {
     const body = req.body || {};
+    const reportId = body.reportId;   // 👈 declare reportId here
+    if (!reportId) {
+      return res.status(400).json({ ok: false, error: "Missing reportId" });
+    }
+
     const raw = typeof body.filename === "string" ? body.filename : "";
     const safeFilename = raw.replace(/[^\w.-]/g, "_") || "upload.jpg";
 
     const bucket = getStorage().bucket();
-    const filePath = "evidence/" + req.user.uid + "/" + Date.now() + "_" + safeFilename;
+    console.log("Using bucket:", bucket.name);
+    const filePath = `reports/${req.user.uid}/${reportId}/${Date.now()}_${safeFilename}`;
     const file = bucket.file(filePath);
 
-    const writeRes = await file.getSignedUrl({
+    // Signed URL for uploading
+    const [uploadUrl] = await file.getSignedUrl({
       version: "v4",
       action: "write",
       expires: Date.now() + 15 * 60 * 1000,
       contentType: "image/jpeg",
     });
-    const uploadUrl = writeRes[0];
 
-    const readRes = await file.getSignedUrl({
+    // Signed URL for later reading
+    const [readUrl] = await file.getSignedUrl({
       version: "v4",
       action: "read",
       expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
     });
-    const readUrl = readRes[0];
 
-    return res.json({ ok: true, uploadUrl: uploadUrl, readUrl: readUrl });
+    return res.json({ ok: true, uploadUrl, readUrl });
   } catch (err) {
     console.error("❌ Signed URL error:", err);
     return res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
+
+// Update report with evidence URL
+app.patch("/:id/evidence", requireAuth, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ ok: false, error: "Missing url" });
+
+    const ref = db.collection("reports").doc(req.params.id);
+    await ref.update({
+      attachments: admin.firestore.FieldValue.arrayUnion(url),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e) });
   }
 });
 

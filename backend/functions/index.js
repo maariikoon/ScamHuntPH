@@ -15,7 +15,7 @@ setGlobalOptions({
 // Use the BUCKET NAME (appspot.com), not the public host firebasestorage.app
 if (!admin.apps.length) {
   admin.initializeApp({
-    storageBucket: "scamhuntph-b3485.appspot.com",
+    storageBucket: "scamhuntph-b3485-2n5bd",
   });
 }
 
