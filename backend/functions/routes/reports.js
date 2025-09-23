@@ -258,18 +258,21 @@ app.get("/:id", requireAuth, async (req, res) => {
 // 🔹 Update report status (ADMIN) + feedback + push notify
 app.patch("/:id/status", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { status, note } = req.body || {};
+    const { status, note, feedback, adminComment } = req.body || {};
     const allowedStatuses = ["pending", "verified", "declined"];
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(400).json({ ok: false, error: "Invalid status" });
     }
+
+    // Normalize any feedback/comment fields into one
+    const comment = (feedback || adminComment || note || "").trim();
 
     const ref = db.collection("reports").doc(req.params.id);
     await ref.update({
       status: String(status),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       lastActionBy: req.user.uid,
-      ...(note ? { lastActionNote: String(note) } : {}),
+      ...(comment ? { feedback: comment } : {}), // ✅ now always defined
     });
 
     return res.json({ ok: true });
