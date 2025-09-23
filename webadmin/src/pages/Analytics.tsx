@@ -1,32 +1,13 @@
 // src/pages/Analytics.tsx
 import * as React from "react";
 import {
-  Title,
-  Text,
-  Grid,
-  Paper,
-  Group,
-  Stack,
-  Loader,
-  Alert,
-  Badge,
+  Title, Text, Grid, Paper, Group, Stack, Loader, Alert, Badge,
 } from "@mantine/core";
-import { getAuth } from "firebase/auth";
 import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  PieChart,
-  Pie,
-  Cell,
+  ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell,
 } from "recharts";
+import { getFreshIdToken } from "@/utils/token"; // ✅ central token util
 
 const API_BASE_URL = "https://analytics-bcvrqgcc6a-as.a.run.app";
 
@@ -46,15 +27,39 @@ type UserRow = {
   lastActiveAt?: string | number | null;
 };
 
+type OverviewResp = {
+  ok: boolean;
+  data?: {
+    reports?: ReportRow[];
+    users?: UserRow[];
+  };
+};
+
+type ListResp<T> = { ok: boolean; data?: T };
+
 /* --------------- Helpers --------------- */
 const fmtMonth = new Intl.DateTimeFormat("en-PH", { month: "short", year: "2-digit" });
 const fmtDate = new Intl.DateTimeFormat("en-PH", { month: "short", day: "2-digit" });
 
-async function getIdToken(): Promise<string> {
-  const user = getAuth().currentUser;
-  if (!user) throw new Error("Not authenticated. Please log in.");
-  return user.getIdToken();
+// Authenticated fetch with safe JSON parsing
+async function apiFetch<T = unknown>(
+  path: string,
+  init: RequestInit = {}
+): Promise<{ ok: boolean; status: number; data: T; text: string }> {
+  const token = await getFreshIdToken();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init.headers || {}),
+    },
+  });
+  const text = await res.text();
+  let data: unknown;
+  try { data = text ? JSON.parse(text) : undefined; } catch { data = undefined; }
+  return { ok: res.ok, status: res.status, data: data as T, text };
 }
+
 function toDate(x: string | number | Date | null | undefined): Date | null {
   if (!x) return null;
   const d = x instanceof Date ? x : new Date(x);
@@ -62,8 +67,8 @@ function toDate(x: string | number | Date | null | undefined): Date | null {
 }
 function startOfWeek(d = new Date()): Date {
   const copy = new Date(d);
-  const day = copy.getDay(); // 0 Sun .. 6 Sat
-  const diff = (day + 6) % 7; // make Monday=0
+  const day = copy.getDay();
+  const diff = (day + 6) % 7; // Monday = 0
   copy.setDate(copy.getDate() - diff);
   copy.setHours(0, 0, 0, 0);
   return copy;
@@ -120,7 +125,6 @@ export default function Analytics() {
   );
 
   const activeUsers = React.useMemo(() => {
-    // Prefer explicit active flag; else consider lastActive within 30 days; else fallback to count
     const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
     const nowTs = now.getTime();
     if (users.some((u) => typeof u.active === "boolean")) {
@@ -151,7 +155,6 @@ export default function Analytics() {
   const weekly = React.useMemo(() => {
     const buckets: { label: string; start: Date; value: number }[] = [];
     const cursor = startOfWeek(now);
-    // go back 7 more weeks
     for (let i = 7; i >= 0; i--) {
       const d = new Date(cursor);
       d.setDate(cursor.getDate() - 7 * i);
@@ -160,7 +163,6 @@ export default function Analytics() {
     for (const r of reports) {
       const d = toDate(r.createdAt);
       if (!d) continue;
-      // find which bucket (week) this date belongs to
       for (let i = 0; i < buckets.length; i++) {
         const start = buckets[i].start;
         const end = new Date(start);
@@ -190,9 +192,7 @@ export default function Analytics() {
   // Interpretations
   const topCategory = byCategory[0]?.name ?? "—";
   const topCategoryPct =
-    byCategory.length > 0
-      ? Math.round((byCategory[0].value / reports.length) * 100)
-      : 0;
+    byCategory.length > 0 ? Math.round((byCategory[0].value / reports.length) * 100) : 0;
 
   const lastWeek = weekly[weekly.length - 2]?.count ?? 0;
   const thisWeek = weekly[weekly.length - 1]?.count ?? 0;
@@ -207,45 +207,28 @@ export default function Analytics() {
         setLoading(true);
         setError("");
 
-        const token = await getIdToken();
-        const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-
-        // Try a dedicated overview; fallback to raw lists
         let rep: ReportRow[] = [];
         let usr: UserRow[] = [];
 
-        try {
-          const res = await fetch(`${API_BASE_URL}/overview`, { headers });
-          if (res.ok) {
-            const j = await res.json();
-            if (j?.data?.reports) rep = j.data.reports;
-            if (j?.data?.users) usr = j.data.users;
-          }
-        } catch {
-          /* ignore and fallback */
+        // Prefer consolidated overview
+        const o = await apiFetch<OverviewResp>("/overview");
+        if (o.ok && o.data?.ok) {
+          rep = o.data.data?.reports ?? [];
+          usr = o.data.data?.users ?? [];
         }
 
+        // Fallbacks
         if (rep.length === 0) {
-          // Pull last 12 months of reports (buffer 60 days)
           const from = new Date();
           from.setMonth(from.getMonth() - 13);
-          const res = await fetch(
-            `${API_BASE_URL}/reports?limit=2000&from=${from.toISOString()}`,
-            { headers }
-          );
-          const j = await res.json();
-          if (res.ok && j.ok) rep = j.data ?? [];
+          const r = await apiFetch<ListResp<ReportRow[]>>(`/reports?limit=2000&from=${from.toISOString()}`);
+          if (r.ok && r.data?.ok) rep = r.data.data ?? [];
         }
 
         if (usr.length === 0) {
-          try {
-            const resU = await fetch(`${API_BASE_URL}/users?limit=2000`, { headers });
-            const jU = await resU.json();
-            if (resU.ok && (jU.ok || Array.isArray(jU))) {
-              usr = jU.data ?? jU ?? [];
-            }
-          } catch {
-            /* users endpoint might not exist; it's fine */
+          const u = await apiFetch<ListResp<UserRow[]>>(`/users?limit=2000`);
+          if (u.ok) {
+            usr = u.data?.data ?? (Array.isArray(u.data) ? (u.data as UserRow[]) : []);
           }
         }
 
@@ -309,9 +292,7 @@ export default function Analytics() {
               <Paper withBorder radius="lg" p="md">
                 <Text size="sm" c="dimmed">Top Category</Text>
                 <Text fw={700} fz="28px">{topCategory}</Text>
-                <Text size="xs" c="dimmed">
-                  {topCategoryPct}% of total
-                </Text>
+                <Text size="xs" c="dimmed">{topCategoryPct}% of total</Text>
               </Paper>
             </Grid.Col>
           </Grid>
@@ -376,16 +357,8 @@ export default function Analytics() {
                 <div style={{ width: "100%", height: 280 }}>
                   <ResponsiveContainer>
                     <PieChart>
-                      <Pie
-                        data={byCategory}
-                        dataKey="value"
-                        nameKey="name"
-                        outerRadius={110}
-                        label
-                      >
-                        {byCategory.map((_, i) => (
-                          <Cell key={i} />
-                        ))}
+                      <Pie data={byCategory} dataKey="value" nameKey="name" outerRadius={110} label>
+                        {byCategory.map((_, i) => (<Cell key={i} />))}
                       </Pie>
                       <Tooltip />
                       <Legend />
@@ -406,25 +379,22 @@ export default function Analytics() {
             <Text fw={600} mb="xs">Recommendations</Text>
             <ul style={{ margin: 0, paddingLeft: "1.2rem" }}>
               <li>
-                Focus moderation and outreach on <b>{topCategory}</b>{" "}
-                (top driver at ~{topCategoryPct}%). Publish a monthly PSA addressing
-                the most common patterns.
+                Focus moderation and outreach on <b>{topCategory}</b> (top driver at ~{topCategoryPct}%).
+                Publish a monthly PSA addressing the most common patterns.
               </li>
               <li>
-                If weekly trend shows spikes (▲), consider enabling push notifications
-                for emerging scams and fast-track verification for trending categories.
+                If weekly trend shows spikes (▲), consider enabling push notifications for emerging scams
+                and fast-track verification for trending categories.
               </li>
               <li>
-                Track <b>report velocity</b> (reports/day). If velocity {'>'} baseline,
-                raise analyst capacity and auto-flag duplicates.
+                Track <b>report velocity</b> (reports/day). If velocity {'>'} baseline, raise analyst capacity
+                and auto-flag duplicates.
               </li>
               <li>
-                For categories with high growth month-over-month, spin up
-                <b> keyword filters</b> + <b>hotline tips</b> inside the mobile app.
+                For categories with high growth month-over-month, spin up <b>keyword filters</b> + <b>hotline tips</b>.
               </li>
               <li>
-                Monitor active users: if low relative to population, launch an
-                in-app campaign to encourage reporting with simple, 1-tap flows.
+                If active users are low, run an in-app campaign to encourage reporting with simple, 1-tap flows.
               </li>
             </ul>
           </Paper>
