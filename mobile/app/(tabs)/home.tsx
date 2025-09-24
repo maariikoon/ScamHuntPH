@@ -5,41 +5,44 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 import { auth } from "../../src/firebase";
 
-
 const API_BASE_URL = "https://analytics-bcvrqgcc6a-as.a.run.app";
 
 export default function Home() {
-  const [stats, setStats] = useState<any>({ verified: 0, pending: 0, popular: "—", today: 0 });
+  const [stats, setStats] = useState<any>({
+    verified: 0,
+    pending: 0,
+    popular: "—",
+    today: 0,
+  });
 
   useEffect(() => {
-  async function fetchStats() {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
-      const token = await user.getIdToken();
+    async function fetchStats() {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+        const token = await user.getIdToken();
 
-      // ✅ new summary endpoint
-      const res = await fetch(`${API_BASE_URL}/summary`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      console.log("📊 summary response:", data); // 👈 add this
-
-      if (data.ok && data.data) {
-        setStats({
-          verified: data.data.verified || 0,
-          pending: data.data.pending || 0,
-          popular: data.data.popularCategory || "—",
-          today: data.data.userReportsToday || 0,
+        const res = await fetch(`${API_BASE_URL}/summary`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-      }
-    } catch (e) {
-      console.error("❌ Stats fetch error:", e);
-    }
-  }
+        const data = await res.json();
+        console.log("📊 summary response:", data);
 
-  fetchStats();
-}, []);
+        if (data.ok && data.data) {
+          setStats({
+            verified: data.data.verified || 0,
+            pending: data.data.pending || 0,
+            popular: data.data.popularCategory || "—",
+            today: data.data.userReportsToday || 0,
+          });
+        }
+      } catch (e) {
+        console.error("❌ Stats fetch error:", e);
+      }
+    }
+
+    fetchStats();
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -54,11 +57,11 @@ export default function Home() {
         <Text style={styles.sectionHeading}>This Week</Text>
         <View style={styles.cardRow}>
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Top Scam Category</Text>
+            <Text style={styles.cardLabel}>Trending Scam Category</Text>
             <Text style={styles.cardValue}>{stats.popular}</Text>
           </View>
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Verified Reports</Text>
+            <Text style={styles.cardLabel}>Your Verified Reports</Text>
             <Text style={styles.cardValue}>{stats.verified}</Text>
           </View>
         </View>
@@ -68,7 +71,7 @@ export default function Home() {
             <Text style={styles.cardValue}>{stats.today}</Text>
           </View>
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Reports To Be Reviewed</Text>
+            <Text style={styles.cardLabel}>Your Pending Reports</Text>
             <Text style={styles.cardValue}>{stats.pending}</Text>
           </View>
         </View>

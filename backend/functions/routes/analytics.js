@@ -16,21 +16,22 @@ app.get("/summary", requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
 
-    // Count reports by status
+    // Count this user's reports by status
     const statuses = ["pending", "verified", "declined"];
-    const counts = {};
+    const userCounts = {};
     await Promise.all(
       statuses.map(async (s) => {
         const snap = await db
           .collection("reports")
+          .where("userId", "==", uid)
           .where("status", "==", s)
           .count()
           .get();
-        counts[s] = snap.data().count || 0;
+        userCounts[s] = snap.data().count || 0;
       })
     );
 
-    // Find most reported category (last 30 days)
+    // Find most reported category (last 30 days, global)
     const from = new Date();
     from.setDate(from.getDate() - 30);
     const catSnap = await db
@@ -65,31 +66,41 @@ app.get("/summary", requireAuth, async (req, res) => {
 
     const todayReports = todaySnap.size;
 
-    // Count all user reports
-    const userReportsSnap = await db.collection("reports")
-      .where("userId", "==", uid)
-      .count()
-      .get();
-
-    const userVerifiedSnap = await db.collection("reports")
+    // Count current user's reports by status (redundant but explicit)
+    const userReportsVerifiedSnap = await db.collection("reports")
       .where("userId", "==", uid)
       .where("status", "==", "verified")
       .count()
       .get();
 
-    const userReportsTotal = userReportsSnap.data().count;
-    const userReportsVerified = userVerifiedSnap.data().count;
+    const userReportsPendingSnap = await db.collection("reports")
+      .where("userId", "==", uid)
+      .where("status", "==", "pending")
+      .count()
+      .get();
+
+    const userReportsVerified = userReportsVerifiedSnap.data().count || 0;
+    const userReportsPending = userReportsPendingSnap.data().count || 0;
+
+    // total = sum of all userCounts
+    const userReportsTotal =
+      (userCounts.pending || 0) +
+      (userCounts.verified || 0) +
+      (userCounts.declined || 0);
 
     return res.json({
       ok: true,
       data: {
-        verified: counts.verified || 0,
-        pending: counts.pending || 0,
-        declined: counts.declined || 0,
-        popularCategory,
+        // ✅ use userCounts here
+        verified: userCounts.verified || 0,
+        pending: userCounts.pending || 0,
+        declined: userCounts.declined || 0,
+
+        popularCategory,            // global
         userReportsToday: todayReports,
-        userReportsTotal,
-        userReportsVerified,
+        userReportsTotal,           // all statuses
+        userReportsVerified,        // redundancy but explicit
+        userReportsPending,         // redundancy but explicit
       },
     });
   } catch (e) {
@@ -97,6 +108,7 @@ app.get("/summary", requireAuth, async (req, res) => {
     return res.status(500).json({ ok: false, error: String(e) });
   }
 });
+
 
 // Existing heavy overview (keep for admin)
 app.get("/overview", requireAuth, async (req, res) => {
