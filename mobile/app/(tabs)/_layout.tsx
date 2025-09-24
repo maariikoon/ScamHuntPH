@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { View, TouchableOpacity } from "react-native";
 import { useNotifications } from "../../src/context/NotificationsContext";
 
+
 function BellIcon() {
   const router = useRouter();
   const { unreadCount, refresh } = useNotifications(); // 👈 get unread count

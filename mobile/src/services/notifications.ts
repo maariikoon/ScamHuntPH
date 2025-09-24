@@ -1,3 +1,4 @@
+//mobile/src/services/notifications.ts
 import { auth } from "@/src/firebase";
 
 const API_BASE_URL = "https://notifications-bcvrqgcc6a-as.a.run.app"; 

@@ -1,3 +1,4 @@
+//mobile/src/context/NotificationsContext.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { auth } from "@/src/firebase";
 
@@ -31,6 +32,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
 
   const refresh = async () => {
     const user = auth.currentUser;
+    
     if (!user) return;
     setLoading(true);
     try {
@@ -39,6 +41,7 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      //console.log("📩 Notifications API response:", data);
       if (data.ok) {
         setNotifications(data.notifications || []);
       }

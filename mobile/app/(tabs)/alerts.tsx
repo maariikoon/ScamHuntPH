@@ -36,6 +36,8 @@ export default function Alerts() {
         Notifications{unreadCount > 0 ? ` • ${unreadCount} unread` : ""}
       </Text>
 
+      <Text>Fetched: {notifications.length} notifications</Text>
+
       {/* Notifications list */}
       <FlatList
         data={notifications}
