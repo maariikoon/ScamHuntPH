@@ -18,21 +18,50 @@ export default function Home() {
         if (!user) return;
         const token = await user.getIdToken();
 
-        // call your analytics endpoint
-        const res = await fetch(`${API_BASE_URL}/stats/all`, {
+        // Fetch status counts
+        const res1 = await fetch(`${API_BASE_URL}/stats/all`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
+        const data1 = await res1.json();
 
-        if (data.ok && data.data) {
-          setStats((s: any) => ({
-            ...s,
-            verified: data.data.verified || 0,
-            pending: data.data.pending || 0,
-          }));
+        // Fetch overview (for categories + today’s reports)
+        const res2 = await fetch(`${API_BASE_URL.replace("/reports", "/analytics")}/overview`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data2 = await res2.json();
+
+        let topCategory = "—";
+        let todayReports = 0;
+
+        if (data2.ok && data2.data?.reports) {
+          const reports = data2.data.reports;
+
+          // Count by category
+          const counts: Record<string, number> = {};
+          reports.forEach((r: any) => {
+            const cat = r.category || "other";
+            counts[cat] = (counts[cat] || 0) + 1;
+          });
+
+          // Find most frequent
+          topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+
+          // Count today's reports for this user
+          const today = new Date().toDateString();
+          todayReports = reports.filter(
+            (r: any) =>
+              r.sender === user.uid &&
+              r.createdAt &&
+              new Date(r.createdAt).toDateString() === today
+          ).length;
         }
 
-        // TODO: add “popular category” + “today’s reports” from /overview or custom API
+        setStats({
+          verified: data1.data?.verified || 0,
+          pending: data1.data?.pending || 0,
+          popular: topCategory,
+          today: todayReports,
+        });
       } catch (e) {
         console.error("❌ Stats fetch error:", e);
       }
