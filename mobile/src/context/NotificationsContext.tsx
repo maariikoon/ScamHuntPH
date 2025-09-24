@@ -1,15 +1,15 @@
 //mobile/src/context/NotificationsContext.tsx
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { auth } from "@/src/firebase";
 
 const API_BASE_URL = "https://notifications-bcvrqgcc6a-as.a.run.app"; 
 
 type Notification = {
   id: string;
-  title: string;
-  message: string;
+  title?: string | null;
+  message?: string | null;
   read: boolean;
-  createdAt: string;
+  createdAt?: string | null;
 };
 
 type NotificationsContextType = {
@@ -30,9 +30,8 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const user = auth.currentUser;
-    
     if (!user) return;
     setLoading(true);
     try {
@@ -41,20 +40,26 @@ export const NotificationsProvider = ({ children }: { children: React.ReactNode 
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      //console.log("📩 Notifications API response:", data);
       if (data.ok) {
-        setNotifications(data.notifications || []);
-      }
+      setNotifications(
+        (data.notifications || []).map((n: any) => ({
+          ...n,
+          title: n.title ?? "",
+          message: n.message ?? "",
+          createdAt: n.createdAt ?? null,
+        }))
+      );
+    }
     } catch (err) {
       console.error("❌ Failed to fetch notifications:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    refresh();
-  }, []);
+  refresh();
+    }, [refresh]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
