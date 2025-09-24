@@ -80,14 +80,26 @@ export default function AccountSettings() {
           style={styles.input}
           onValueChange={(v) => setRegion(v)}
         >
-          <Picker.Item label="NCR" value="NCR" />
-          <Picker.Item label="Region I – Ilocos" value="Region I" />
+          <Picker.Item label="NCR – National Capital Region" value="NCR" />
+          <Picker.Item label="Region I – Ilocos Region" value="Region I" />
           <Picker.Item label="Region II – Cagayan Valley" value="Region II" />
           <Picker.Item label="Region III – Central Luzon" value="Region III" />
           <Picker.Item label="Region IV-A – CALABARZON" value="Region IV-A" />
           <Picker.Item label="Region IV-B – MIMAROPA" value="Region IV-B" />
-          <Picker.Item label="Region V – Bicol" value="Region V" />
-          {/* Add more regions as needed */}
+          <Picker.Item label="Region V – Bicol Region" value="Region V" />
+          <Picker.Item label="Region VI – Western Visayas" value="Region VI" />
+          <Picker.Item label="Region VII – Central Visayas" value="Region VII" />
+          <Picker.Item label="Region VIII – Eastern Visayas" value="Region VIII" />
+          <Picker.Item label="Region IX – Zamboanga Peninsula" value="Region IX" />
+          <Picker.Item label="Region X – Northern Mindanao" value="Region X" />
+          <Picker.Item label="Region XI – Davao Region" value="Region XI" />
+          <Picker.Item label="Region XII – SOCCSKSARGEN" value="Region XII" />
+          <Picker.Item label="Region XIII – Caraga" value="Region XIII" />
+          <Picker.Item label="CAR – Cordillera Administrative Region" value="CAR" />
+          <Picker.Item
+            label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao"
+            value="BARMM"
+          />
         </Picker>
 
         <View style={styles.btnRow}>

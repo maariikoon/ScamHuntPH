@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../src/firebase";
@@ -15,6 +15,7 @@ export default function Profile() {
     total: 0,
     verified: 0,
   });
+  const [loadingImpact, setLoadingImpact] = useState(true);
 
   useEffect(() => {
     async function fetchUserAndImpact() {
@@ -44,6 +45,7 @@ export default function Profile() {
           verified: data.data.userReportsVerified || 0,
         });
       }
+      setLoadingImpact(false);
     }
 
     fetchUserAndImpact();
@@ -72,14 +74,19 @@ export default function Profile() {
 
         {/* Settings Section */}
         <Text style={styles.sectionHeading}>Settings</Text>
+
         <Link href="/profile/account-settings" asChild>
           <TouchableOpacity style={styles.listItem}>
             <Text style={styles.listText}>Account Settings</Text>
           </TouchableOpacity>
         </Link>
-        <TouchableOpacity style={styles.listItem}>
-          <Text style={styles.listText}>Privacy and Security</Text>
-        </TouchableOpacity>
+
+        <Link href="/profile/privacy-security" asChild>
+          <TouchableOpacity style={styles.listItem}>
+            <Text style={styles.listText}>Privacy and Security</Text>
+          </TouchableOpacity>
+        </Link>
+
         <TouchableOpacity style={styles.listItem}>
           <Text style={styles.listText}>Notification Preferences</Text>
         </TouchableOpacity>
