@@ -6,69 +6,39 @@ import { Link } from "expo-router";
 import { auth } from "../../src/firebase";
 
 
-const API_BASE_URL = "https://reports-bcvrqgcc6a-as.a.run.app";
+const API_BASE_URL = "https://analytics-bcvrqgcc6a-as.a.run.app";
 
 export default function Home() {
   const [stats, setStats] = useState<any>({ verified: 0, pending: 0, popular: "—", today: 0 });
 
   useEffect(() => {
-    async function fetchStats() {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-        const token = await user.getIdToken();
+  async function fetchStats() {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      const token = await user.getIdToken();
 
-        // Fetch status counts
-        const res1 = await fetch(`${API_BASE_URL}/stats/all`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data1 = await res1.json();
+      // ✅ new summary endpoint
+      const res = await fetch(`${API_BASE_URL}/summary`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
 
-        // Fetch overview (for categories + today’s reports)
-        const res2 = await fetch(`${API_BASE_URL.replace("/reports", "/analytics")}/overview`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data2 = await res2.json();
-
-        let topCategory = "—";
-        let todayReports = 0;
-
-        if (data2.ok && data2.data?.reports) {
-          const reports = data2.data.reports;
-
-          // Count by category
-          const counts: Record<string, number> = {};
-          reports.forEach((r: any) => {
-            const cat = r.category || "other";
-            counts[cat] = (counts[cat] || 0) + 1;
-          });
-
-          // Find most frequent
-          topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
-
-          // Count today's reports for this user
-          const today = new Date().toDateString();
-          todayReports = reports.filter(
-            (r: any) =>
-              r.sender === user.uid &&
-              r.createdAt &&
-              new Date(r.createdAt).toDateString() === today
-          ).length;
-        }
-
+      if (data.ok && data.data) {
         setStats({
-          verified: data1.data?.verified || 0,
-          pending: data1.data?.pending || 0,
-          popular: topCategory,
-          today: todayReports,
+          verified: data.data.verified || 0,
+          pending: data.data.pending || 0,
+          popular: data.data.popularCategory || "—",
+          today: data.data.userReportsToday || 0,
         });
-      } catch (e) {
-        console.error("❌ Stats fetch error:", e);
       }
+    } catch (e) {
+      console.error("❌ Stats fetch error:", e);
     }
+  }
 
-    fetchStats();
-  }, []);
+  fetchStats();
+}, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -87,7 +57,7 @@ export default function Home() {
             <Text style={styles.cardValue}>{stats.popular}</Text>
           </View>
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Verified</Text>
+            <Text style={styles.cardLabel}>Verified Reports</Text>
             <Text style={styles.cardValue}>{stats.verified}</Text>
           </View>
         </View>
@@ -97,7 +67,7 @@ export default function Home() {
             <Text style={styles.cardValue}>{stats.today}</Text>
           </View>
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Pending Reviews</Text>
+            <Text style={styles.cardLabel}>Reports To Be Reviewed</Text>
             <Text style={styles.cardValue}>{stats.pending}</Text>
           </View>
         </View>
@@ -108,7 +78,7 @@ export default function Home() {
           <Link href="/report" asChild>
             <TouchableOpacity style={styles.widget}>
               <Text style={styles.emoji}>📝</Text>
-              <Text style={styles.widgetText}>Report Scam</Text>
+              <Text style={styles.widgetText}>Report a Scam</Text>
             </TouchableOpacity>
           </Link>
 
@@ -129,7 +99,7 @@ export default function Home() {
 
           <TouchableOpacity style={styles.widget}>
             <Text style={styles.emoji}>🔍</Text>
-            <Text style={styles.widgetText}>Browse Reports</Text>
+            <Text style={styles.widgetText}>Browse Public Reports</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
