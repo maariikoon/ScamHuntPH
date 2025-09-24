@@ -65,6 +65,21 @@ app.get("/summary", requireAuth, async (req, res) => {
 
     const todayReports = todaySnap.size;
 
+    // Count all user reports
+    const userReportsSnap = await db.collection("reports")
+      .where("userId", "==", uid)
+      .count()
+      .get();
+
+    const userVerifiedSnap = await db.collection("reports")
+      .where("userId", "==", uid)
+      .where("status", "==", "verified")
+      .count()
+      .get();
+
+    const userReportsTotal = userReportsSnap.data().count;
+    const userReportsVerified = userVerifiedSnap.data().count;
+
     return res.json({
       ok: true,
       data: {
@@ -73,6 +88,8 @@ app.get("/summary", requireAuth, async (req, res) => {
         declined: counts.declined || 0,
         popularCategory,
         userReportsToday: todayReports,
+        userReportsTotal,
+        userReportsVerified,
       },
     });
   } catch (e) {

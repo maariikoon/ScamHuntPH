@@ -1,5 +1,13 @@
-import { useEffect, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
 import { useRouter } from "expo-router";
 
 const API_BASE_URL = "https://lessons-bcvrqgcc6a-as.a.run.app";
@@ -14,35 +22,42 @@ type Lesson = {
 export default function Learn() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    async function fetchLessons() {
-      try {
-        const res = await fetch(`${API_BASE_URL}/`);
-        const data = await res.json();
-        console.log("📘 API response (lessons):", data);
+  const fetchLessons = useCallback(async () => {
+    try {
+      if (!refreshing) setLoading(true); // only show spinner on first load
+      const res = await fetch(`${API_BASE_URL}/`);
+      const data = await res.json();
+      console.log("📘 API response (lessons):", data);
 
-        if (data.ok) {
-          setLessons(data.lessons.filter((l: Lesson) => l.published));
-        } else {
-          setError(data.error || "Failed to fetch lessons.");
-        }
-      } catch (err) {
-        console.error("❌ Lessons fetch error:", err);
-        setError("Failed to load lessons.");
-      } finally {
-        setLoading(false);
+      if (data.ok) {
+        setLessons(data.lessons.filter((l: Lesson) => l.published));
+        setError(null);
+      } else {
+        setError(data.error || "Failed to fetch lessons.");
       }
+    } catch (err) {
+      console.error("❌ Lessons fetch error:", err);
+      setError("Failed to load lessons.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  }, [refreshing]);
+
+  useEffect(() => {
     fetchLessons();
-  }, []);
+  }, [fetchLessons]);
 
   const renderItem = ({ item }: { item: Lesson }) => (
     <TouchableOpacity
       style={styles.lessonItem}
-      onPress={() => router.push({ pathname: "/lessons/[lessonId]", params: { learnId: item.id } })}
+      onPress={() =>
+        router.push({ pathname: "/lessons/[lessonId]", params: { learnId: item.id } })
+      }
     >
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.category}>{item.category}</Text>
@@ -51,13 +66,25 @@ export default function Learn() {
 
   return (
     <View style={styles.container}>
-
-      {loading ? (
+      {loading && !refreshing ? (
         <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
       ) : error ? (
         <Text style={styles.error}>{error}</Text>
       ) : (
-        <FlatList data={lessons} keyExtractor={(item) => item.id} renderItem={renderItem} />
+        <FlatList
+          data={lessons}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                fetchLessons();
+              }}
+            />
+          }
+        />
       )}
     </View>
   );

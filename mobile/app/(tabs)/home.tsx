@@ -23,6 +23,7 @@ export default function Home() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      console.log("📊 summary response:", data); // 👈 add this
 
       if (data.ok && data.data) {
         setStats({
