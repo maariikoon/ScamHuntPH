@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../src/firebase";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 
 const db = getFirestore();
 const API_BASE_URL = "https://analytics-bcvrqgcc6a-as.a.run.app";
@@ -16,6 +16,8 @@ export default function Profile() {
     verified: 0,
   });
   const [loadingImpact, setLoadingImpact] = useState(true);
+  const router = useRouter();
+
 
   useEffect(() => {
     async function fetchUserAndImpact() {
@@ -98,11 +100,30 @@ export default function Profile() {
 
         {/* Sign Out */}
         <TouchableOpacity
-          style={[styles.listItem, { backgroundColor: "#f8d7da" }]}
-          onPress={async () => {
-            await auth.signOut();
+          style={[styles.listItem, { flexDirection: "row", alignItems: "center" }]}
+          onPress={() => {
+            Alert.alert(
+              "Sign Out",
+              "Are you sure you want to sign out?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Sign Out",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await auth.signOut();
+                      router.replace("/(auth)/login");
+                    } catch (err: any) {
+                      Alert.alert("Error", err.message);
+                    }
+                  },
+                },
+              ]
+            );
           }}
         >
+          <Ionicons name="log-out-outline" size={22} color="red" style={{ marginRight: 8 }} />
           <Text style={[styles.listText, { color: "red" }]}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
