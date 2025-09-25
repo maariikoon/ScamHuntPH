@@ -4,6 +4,7 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, Alert } from "react-nati
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword, UserCredential } from "firebase/auth";
 import { auth } from "../../src/firebase"; // 
+import { MobileApi } from "../../src/utils/api";
 
 export default function Login(): JSX.Element {
   const [email, setEmail] = useState<string>("");
@@ -24,6 +25,7 @@ export default function Login(): JSX.Element {
         password
       );
       console.log("✅ User logged in:", userCredential.user.email);
+      await MobileApi.heartbeat(true);
       router.replace("/home"); // redirect to Home tab
     } catch (error: any) {
       console.error("❌ Login failed:", error.message);
