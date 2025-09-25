@@ -32,8 +32,15 @@ function normalizeUser(uid, uDoc, aDoc, authRec) {
     displayName: a.displayName || u.displayName || authRec?.displayName || "",
     role: a.role || u.role || "user",
     status: a.status || u.status || (authRec?.disabled ? "suspended" : "active"),
-    lastLoginAt: tsToIso(authRec?.metadata?.lastSignInTime),
-    lastActiveAt: tsToIso(u.lastActiveAt || a.lastActiveAt),
+
+    // ✅ Prefer Firestore heartbeat fields, fallback to Auth metadata
+    lastLoginAt: tsToIso(
+      u.lastLoginAt || a.lastLoginAt || authRec?.metadata?.lastSignInTime
+    ),
+    lastActiveAt: tsToIso(
+      u.lastActiveAt || a.lastActiveAt || authRec?.metadata?.lastRefreshTime
+    ),
+
     reportCount: 0, // filled later
   };
 }
@@ -222,6 +229,63 @@ app.post("/:id/reactivate", requireAuth, async (req, res) => {
     return res.json({ ok: true });
   } catch (e) {
     console.error("❌ Reactivate error:", e);
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+// POST /admin/users/heartbeat
+app.post("/heartbeat", requireAuth, async (req, res) => {
+  try {
+    const { login = false } = req.body || {};
+    const uid = req.user.uid;
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const updates = { lastActiveAt: now };
+    if (login) updates.lastLoginAt = now;
+
+    await Promise.all([
+      db.collection("users").doc(uid).set(updates, { merge: true }),
+      db.collection("admins").doc(uid).set(updates, { merge: true }),
+    ]);
+
+    return res.json({ ok: true, message: "Heartbeat recorded" });
+  } catch (e) {
+    console.error("❌ Heartbeat error:", e);
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+// GET /admin/metrics/active-admins?window=24h
+app.get("/../metrics/active-admins", requireAuth, async (req, res) => {
+  try {
+    const window = req.query.window || "24h";
+
+    // compute since timestamp
+    let hours = 24;
+    if (typeof window === "string" && window.endsWith("h")) {
+      hours = parseInt(window.replace("h", ""), 10) || 24;
+    }
+    const since = new Date();
+    since.setHours(since.getHours() - hours);
+
+    // query admins active within window
+    const snap = await db
+      .collection("admins")
+      .where("lastActiveAt", ">=", admin.firestore.Timestamp.fromDate(since))
+      .get();
+
+    const rows = snap.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        id: doc.id,
+        role: d.role || "admin",
+        email: d.email || "",
+      };
+    });
+
+    return res.json({ ok: true, data: rows });
+  } catch (e) {
+    console.error("❌ ActiveAdmins error:", e);
     return res.status(500).json({ ok: false, error: String(e) });
   }
 });

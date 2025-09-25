@@ -8,6 +8,7 @@ import { notifications } from '@mantine/notifications';
 import { IconLock, IconShieldCheck, IconEye } from '@tabler/icons-react';
 import { auth } from '@/firebase';
 import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { AdminApi } from '@/utils/api'; 
 
 function friendlyError(err: unknown): string {
   const e = err as { code?: string; message?: string };
@@ -61,6 +62,8 @@ export default function AdminLogin() {
           message: 'We sent a password reset link to your email.',
         });
       }
+
+      await AdminApi.heartbeat(true);
 
       // Go to Admin root (we removed the change-password route)
       navigate({ to: '/admin' as const });

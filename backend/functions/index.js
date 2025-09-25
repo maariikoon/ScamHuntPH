@@ -37,7 +37,7 @@ api.get("/", (_req, res) => {
   res.json({
     ok: true,
     message: "ScamHunt API v1 🚀",
-    routes: ["/reports", "/analytics", "/lessons"],
+    routes: ["/reports", "/analytics", "/lessons", "/notifications", "/admin/users",],
   });
 });
 

@@ -11,21 +11,36 @@ export default function ActiveAdminsWidget() {
 
   const [rows, setRows] = React.useState<Admin[]>([]);
   const [loading, setLoading] = React.useState(true);
-  React.useEffect(()=>{ (async ()=>{
-    const res = await AdminApi.activeAdmins('24h');
-    setRows(res.ok ? res.data : []); setLoading(false);
-  })(); },[]);
+
+  React.useEffect(() => {
+    (async () => {
+      // 👇 Cast response so TypeScript knows its shape
+      const res = await AdminApi.activeAdmins('24h') as { ok: boolean; data: Admin[] };
+      setRows(res.ok ? res.data : []);
+      setLoading(false);
+    })();
+  }, []);
+
   return (
     <Card withBorder radius="lg">
-      <Group justify="space-between"><Text fw={600}>Active admins (24h)</Text><Badge>{rows.length}</Badge></Group>
+      <Group justify="space-between">
+        <Text fw={600}>Active admins (24h)</Text>
+        <Badge>{rows.length}</Badge>
+      </Group>
       <Stack gap="xs" mt="sm">
-        {loading ? <Loader/> : rows.map(a => (
-          <Group key={a.id} gap="xs">
-            <Badge variant="light">{a.role}</Badge>
-            <Text>{a.email}</Text>
-          </Group>
-        ))}
-        {!loading && rows.length===0 && <Text c="dimmed">No recent admin activity.</Text>}
+        {loading ? (
+          <Loader />
+        ) : (
+          rows.map((a) => (
+            <Group key={a.id} gap="xs">
+              <Badge variant="light">{a.role}</Badge>
+              <Text>{a.email}</Text>
+            </Group>
+          ))
+        )}
+        {!loading && rows.length === 0 && (
+          <Text c="dimmed">No recent admin activity.</Text>
+        )}
       </Stack>
     </Card>
   );

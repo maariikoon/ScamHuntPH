@@ -134,7 +134,10 @@ export const AdminApi = {
         body: JSON.stringify(params ?? {}),
       });
     } catch (e: unknown) {
-      if (e instanceof Error && (e.message.includes('HTTP 404') || e.message.includes('HTTP 405'))) {
+      if (
+        e instanceof Error &&
+        (e.message.includes('HTTP 404') || e.message.includes('HTTP 405'))
+      ) {
         // Fallback to GET shape
         return await authedFetch(`/admin/users${toQS(params)}`);
       }
@@ -146,38 +149,43 @@ export const AdminApi = {
     authedFetch(`/admin/users/${encodeURIComponent(uid)}`),
 
   createAdmin: async (payload: { email: string; displayName?: string; role?: string }) =>
-    authedFetch(`/admin/users`, { method: 'POST', body: JSON.stringify(payload) }),
+    authedFetch(`/admin/users`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
-  resetUser: async (uid: string, payload = { revokeTokens: true, sendReset: true }) =>
-    authedFetch(`/admin/users/${encodeURIComponent(uid)}/reset`, { method: 'POST', body: JSON.stringify(payload) }),
+  resetUser: async (
+    uid: string,
+    payload = { revokeTokens: true, sendReset: true }
+  ) =>
+    authedFetch(`/admin/users/${encodeURIComponent(uid)}/reset`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   setRole: async (uid: string, role: string) =>
-    authedFetch(`/admin/users/${encodeURIComponent(uid)}/role`, { method: 'POST', body: JSON.stringify({ role }) }),
+    authedFetch(`/admin/users/${encodeURIComponent(uid)}/role`, {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    }),
 
   suspend: async (uid: string, reason: string) =>
-    authedFetch(`/admin/users/${encodeURIComponent(uid)}/suspend`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    authedFetch(`/admin/users/${encodeURIComponent(uid)}/suspend`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
 
   reactivate: async (uid: string) =>
-    authedFetch(`/admin/users/${encodeURIComponent(uid)}/reactivate`, { method: 'POST' }),
+    authedFetch(`/admin/users/${encodeURIComponent(uid)}/reactivate`, {
+      method: 'POST',
+    }),
 
   activeAdmins: async (window = '24h') =>
-    authedFetch(`/admin/metrics/active-admins${toQS({ window })}`),
+    authedFetch(`/admin/users/metrics/active-admins${toQS({ window })}`),
 
-  // Prefer /admin/heartbeat, fallback to /me/heartbeat
-  async heartbeat(login = false) {
-    try {
-      return await authedFetch(`/admin/heartbeat`, {
-        method: 'POST',
-        body: JSON.stringify({ login }),
-      });
-    } catch (e: unknown) {
-      if (e instanceof Error && e.message.includes('HTTP 404')) {
-        return await authedFetch(`/me/heartbeat`, {
-          method: 'POST',
-          body: JSON.stringify({ login }),
-        });
-      }
-      throw e;
-    }
-  },
+  heartbeat: async (login = false) =>
+    authedFetch(`/admin/users/heartbeat`, {
+      method: 'POST',
+      body: JSON.stringify({ login }),
+    }),
 };
