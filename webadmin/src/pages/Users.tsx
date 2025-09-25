@@ -68,7 +68,7 @@ export default function UsersPage() {
         sort: 'lastActiveAt:desc',
       };
 
-      const res = await AdminApi.listUsers(params);
+      const res = await AdminApi.listUsers(params) as { items?: UserRow[]; data?: { items?: UserRow[]; total?: number }; total?: number; count?: number };
 
       // Accept multiple envelopes
       const items: UserRow[] =
@@ -110,7 +110,7 @@ export default function UsersPage() {
   };
 
   const doReset = async (u: UserRow) => {
-    const res = await AdminApi.resetUser(u.id, { revokeTokens: true, sendReset: true });
+    const res = await AdminApi.resetUser(u.id, { revokeTokens: true, sendReset: true }) as { ok: boolean; data?: { resetLink?: string }; error?: string };
     if (res?.ok === false) {
       notifications.show({ color: 'red', title: 'Reset failed', message: res?.error || 'Error' });
       return;
@@ -120,7 +120,7 @@ export default function UsersPage() {
   };
 
   const changeRole = async (u: UserRow, newRole: string) => {
-    const res = await AdminApi.setRole(u.id, newRole);
+    const res = await AdminApi.setRole(u.id, newRole) as { ok?: boolean; error?: string };
     if (res?.ok === false) {
       notifications.show({ color: 'red', title: 'Role update failed', message: res?.error || 'Error' });
     } else {
@@ -130,7 +130,7 @@ export default function UsersPage() {
   };
 
   const suspend = async (u: UserRow) => {
-    const res = await AdminApi.suspend(u.id, 'By admin action');
+    const res = await AdminApi.suspend(u.id, 'By admin action') as { ok?: boolean; error?: string };
     if (res?.ok === false) {
       notifications.show({ color: 'red', title: 'Suspend failed', message: res?.error || 'Error' });
     } else {
@@ -140,7 +140,7 @@ export default function UsersPage() {
   };
 
   const reactivate = async (u: UserRow) => {
-    const res = await AdminApi.reactivate(u.id);
+    const res = await AdminApi.reactivate(u.id) as { ok?: boolean; error?: string };
     if (res?.ok === false) {
       notifications.show({ color: 'red', title: 'Reactivate failed', message: res?.error || 'Error' });
     } else {

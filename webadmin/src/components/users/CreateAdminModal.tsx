@@ -14,7 +14,7 @@ export default function CreateAdminModal({
   const submit = async () => {
     try {
       setLoading(true);
-      const res = await AdminApi.createAdmin({ email, displayName: name, role: role || 'admin' });
+      const res = await AdminApi.createAdmin({ email, displayName: name, role: role || 'admin' }) as { ok: boolean; error?: string; data?: { inviteLink?: string } };
       if (!res.ok) throw new Error(res.error || 'Create failed');
       notifications.show({ color: 'green', title: 'Admin created', message: 'Invite link copied to clipboard.' });
       if (res.data?.inviteLink) await navigator.clipboard.writeText(res.data.inviteLink);
