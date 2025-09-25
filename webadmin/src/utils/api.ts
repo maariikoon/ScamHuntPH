@@ -69,7 +69,7 @@ export async function authFetch<T = unknown>(url: string, init: RequestInit = {}
 }
 
 /* ---------- Admin API (backend endpoints) ---------- */
-const RAW_BASE = import.meta.env.VITE_BACKEND_URL ?? 'https://scamhunt-bcvrqgcc6a-as.a.run.app';
+const RAW_BASE = import.meta.env.VITE_BACKEND_URL ?? 'https://api-bcvrqgcc6a-as.a.run.app';
 const BASE = trim(RAW_BASE);
 
 // Core authed request for Admin API
