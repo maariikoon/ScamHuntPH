@@ -20,6 +20,7 @@
     "@tanstack/history": "^1.131.2",
     "@tanstack/react-router": "^1.131.49",
     "@tanstack/react-router-devtools": "^1.131.49",
+    "cors": "^2.8.5",
     "d3": "^7.9.0",
     "dayjs": "^1.11.18",
     "dompurify": "^3.2.7",
