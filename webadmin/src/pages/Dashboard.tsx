@@ -5,9 +5,10 @@ import {
 import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import {
-  collection, getDocs, limit, onSnapshot, orderBy, query, Timestamp, where, type QueryConstraint,
+  collection, getDocs, limit, onSnapshot, orderBy, query, Timestamp, where,
+  documentId, type QueryConstraint,
 } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth'; // ✅ new
+import { getAuth } from 'firebase/auth';
 import { db } from '@/firebase';
 import StatCard from '@/components/StatCard';
 import { Download, Filter, RefreshCw } from 'lucide-react';
@@ -16,7 +17,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import jsPDF from 'jspdf';
-import { getFreshIdToken } from '@/utils/token'; // ✅ uses your existing token util
+import { getFreshIdToken } from '@/utils/token';
 
 // --- Types ---
 type Stats = {
@@ -50,11 +51,22 @@ const API_BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'https://analytics-bcvr
 // Small helper to call backend with ID token
 async function fetchOverview() {
   const idToken = await getFreshIdToken();
-  const r = await fetch(`${API_BASE_URL}/admin/overview`, {
-    headers: { Authorization: `Bearer ${idToken}` },
+  const resp = await fetch(`${API_BASE_URL}/admin/overview`, {
+    headers: { Authorization: `Bearer ${idToken}`, Accept: 'application/json' },
   });
-  return r.json();
+  if (!resp.ok) {
+    const t = await resp.text().catch(() => '');
+    throw new Error(`HTTP ${resp.status} ${resp.statusText} ${t}`);
+  }
+  return resp.json();
 }
+
+// ✅ safe helpers (no mutation of state dates)
+const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+const endOfDay   = (d: Date) => { const x = new Date(d); x.setHours(23,59,59,999); return x; };
+
+// Simple doc-id heuristic
+const looksLikeDocId = (s: string) => s.length >= 18 && !/\s/.test(s);
 
 export default function Dashboard() {
   // ---- cards state ----
@@ -82,36 +94,36 @@ export default function Dashboard() {
   const mountedAt = useRef<number>(Date.now());
   const auth = getAuth();
 
-  // ✅ ensure latest custom claims (admin) are on the token
+  // ensure latest custom claims (admin) are on the token
   useEffect(() => {
-    (async () => { try { await auth.currentUser?.getIdToken(true); } catch { /* Handle error if needed */ }
+    (async () => {
+      try { await auth.currentUser?.getIdToken(true); } catch { /* ignore */ }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- helpers ----
+  // ✅ build constraints without mutating dates
   const buildReportConstraints = useCallback((): QueryConstraint[] => {
     const cons: QueryConstraint[] = [];
-    if (status !== 'all') cons.push(where('status', '==', status));
 
+    if (status !== 'all') cons.push(where('status', '==', status));
     const [from, to] = dateRange;
-    if (from) cons.push(where('createdAt', '>=', Timestamp.fromDate(new Date(from.setHours(0, 0, 0, 0)))));
-    if (to) cons.push(where('createdAt', '<=', Timestamp.fromDate(new Date(to.setHours(23, 59, 59, 999)))));
+    if (from) cons.push(where('createdAt', '>=', Timestamp.fromDate(startOfDay(from))));
+    if (to)   cons.push(where('createdAt', '<=', Timestamp.fromDate(endOfDay(to))));
 
     if (category) cons.push(where('category', '==', category));
-    if (region) cons.push(where('region', '==', region));
+    if (region)   cons.push(where('region', '==', region));
 
     cons.push(orderBy('createdAt', 'desc'));
     return cons;
   }, [status, dateRange, category, region]);
 
-  // 🔁 wrap Firestore calls to retry once after a forced token refresh
+  // retry once after a forced token refresh
   async function withPermRetry<T>(fn: () => Promise<T>): Promise<T> {
     try { return await fn(); }
     catch (e: unknown) {
-      const error = e as { code?: string; message?: string };
-      const msg = `${error?.code ?? ''} ${error?.message ?? e}`;
-      if (msg.includes('permission') || msg.includes('insufficient')) {
+      const msg = `${(e as { code?: string; message?: string })?.code ?? ''} ${(e as { code?: string; message?: string })?.message ?? e}`;
+      if (/permission|insufficient/i.test(msg)) {
         await auth.currentUser?.getIdToken(true);
         return await fn();
       }
@@ -119,14 +131,15 @@ export default function Dashboard() {
     }
   }
 
-  // ---- load top cards (server-side to bypass rules) ----
+  // ---- load top cards ----
   const loadCards = async () => {
     setErr(null);
     setLoadingCards(true);
     try {
       const res = await fetchOverview();
-      if (!res?.ok) throw new Error(res?.error || 'Failed to load overview');
       if (!alive.current) return;
+      // expecting { ok: true, data: {...} }
+      if (!res?.ok) throw new Error(res?.error || 'Failed to load overview');
       setStats(res.data);
     } catch (e: unknown) {
       if (!alive.current) return;
@@ -136,19 +149,31 @@ export default function Dashboard() {
     }
   };
 
-  // ---- load filtered reports for charts and export ----
+  // ---- load filtered reports ----
   const loadFiltered = useCallback(async () => {
     setLoadingData(true);
     try {
-      const cons = buildReportConstraints();
-      const snap = await withPermRetry(() => getDocs(query(collection(db, 'reports'), ...cons)));
+      const s = search.trim();
+
+      // ✅ Fast path: exact document ID
+      let qRef;
+      if (s && looksLikeDocId(s)) {
+        qRef = query(collection(db, 'reports'), where(documentId(), '==', s));
+      } else {
+        const cons = buildReportConstraints();
+        // ✅ keep queries bounded
+        qRef = query(collection(db, 'reports'), ...cons, limit(500));
+      }
+
+      const snap = await withPermRetry(() => getDocs(qRef));
       let items: Report[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Partial<Report>) }));
 
-      // simple client search across id/category/region
-      if (search.trim()) {
-        const q = search.toLowerCase();
+      // Optional client-side fuzzy contains for non-docId searches
+      if (s && !looksLikeDocId(s)) {
+        const ql = s.toLowerCase();
         items = items.filter((r) =>
-          [r.id, r.category, r.region].some((v) => (v ?? '').toString().toLowerCase().includes(q)),
+          [r.id, r.category, r.region]
+            .some((v) => (v ?? '').toString().toLowerCase().includes(ql)),
         );
       }
 
@@ -163,7 +188,7 @@ export default function Dashboard() {
     }
   }, [buildReportConstraints, search]);
 
-  // initial + whenever filters change (via memoized callback)
+  // initial + whenever filters change
   useEffect(() => {
     alive.current = true;
     loadCards();
@@ -171,7 +196,7 @@ export default function Dashboard() {
     return () => { alive.current = false; };
   }, [loadFiltered]);
 
-  // ---- realtime notification for new reports ----
+  // realtime toast for new reports
   useEffect(() => {
     const cons: QueryConstraint[] = [orderBy('createdAt', 'desc'), limit(1)];
     const unsub = onSnapshot(
@@ -190,8 +215,8 @@ export default function Dashboard() {
           }
         },
         error: async (err) => {
-          const msg = `${err?.code ?? ''} ${err?.message ?? err}`;
-          if (msg.includes('permission') || msg.includes('insufficient')) {
+          const msg = `${(err as { code?: string; message?: string })?.code ?? ''} ${(err as { code?: string; message?: string })?.message ?? err}`;
+          if (/permission|insufficient/i.test(msg)) {
             await auth.currentUser?.getIdToken(true);
           }
         },
@@ -200,7 +225,7 @@ export default function Dashboard() {
     return () => unsub();
   }, [auth]);
 
-  // ---- charts data ----
+  // charts
   const lineData = useMemo(() => {
     const map = new Map<string, number>();
     filteredReports.forEach((r) => {
@@ -222,7 +247,7 @@ export default function Dashboard() {
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
   }, [filteredReports]);
 
-  // ---- export helpers ----
+  // export helpers
   function exportCSV() {
     const rows = filteredReports.map((r) => ({
       id: r.id,
@@ -233,7 +258,10 @@ export default function Dashboard() {
     }));
 
     const header = Object.keys(rows[0] ?? { id: '', createdAt: '', category: '', region: '', status: '' });
-    const csv = [header.join(','), ...rows.map((r) => header.map((h) => JSON.stringify((r as Record<string, string | number | null>)[h] ?? '')).join(','))].join('\n');
+    const csv = [header.join(','), ...rows.map((r) =>
+      header.map((h) => JSON.stringify((r as Record<string, string | number | null>)[h] ?? '')).join(',')
+    )].join('\n');
+
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -364,10 +392,10 @@ export default function Dashboard() {
             />
             <TextInput
               label="Search"
-              placeholder="ID / category / region"
+              placeholder="Paste report ID / type category or region"
               value={search}
               onChange={(e) => setSearch(e.currentTarget.value)}
-              maw={260}
+              maw={320}
             />
           </Group>
           <Group>

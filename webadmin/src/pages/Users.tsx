@@ -18,7 +18,7 @@ type UserRow = {
   id: string;
   email?: string;
   displayName?: string;
-  role?: 'super_admin'|'admin'|'analyst'|'viewer'|'user'|string;
+  role?: 'superadmin'|'admin'|'analyst'|'viewer'|'user'|string;
   status?: 'active'|'suspended'|'deleted'|string;
   lastLoginAt?: TSLike;
   lastActiveAt?: TSLike;
