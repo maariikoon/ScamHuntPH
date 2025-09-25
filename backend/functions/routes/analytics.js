@@ -153,4 +153,38 @@ app.get("/overview", requireAuth, async (req, res) => {
   }
 });
 
+// ========================================================================
+// 🔹 New lightweight admin dashboard summary
+// ========================================================================
+app.get("/admin/overview", requireAuth, async (req, res) => {
+  try {
+    const reportsSnap = await db.collection("reports").get();
+    const totalReports = reportsSnap.size;
+
+    let pendingReviews = 0;
+    let verifiedReports = 0;
+    reportsSnap.forEach((doc) => {
+      const v = doc.data();
+      if (v.status === "pending") pendingReviews++;
+      if (v.status === "verified") verifiedReports++;
+    });
+
+    const usersSnap = await db.collection("users").get();
+    const activeUsers = usersSnap.size;
+
+    return res.json({
+      ok: true,
+      data: {
+        totalReports,
+        pendingReviews,
+        verifiedReports,
+        activeUsers,
+      },
+    });
+  } catch (e) {
+    console.error("❌ Admin overview error:", e);
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
 module.exports = app;
