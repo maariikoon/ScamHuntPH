@@ -25,22 +25,33 @@ async function requireAuth(req, res, next) {
 
   try {
     const idToken = m[1];
-    const decoded = await admin.auth().verifyIdToken(idToken); // includes custom claims
+    const decoded = await admin.auth().verifyIdToken(idToken);
 
-    // decoded already contains uid + any custom claims you set via setCustomUserClaims
     const claims = decoded;
-
-    // Normalize role/admin flags so routes can read consistently
     const role = claims.role || claims.roles || null;
-    const isAdmin =
-      truthy(claims.admin) || role === "superadmin";
+    const isAdmin = truthy(claims.admin) || role === "superadmin";
 
     // Attach to request
-    req.user = decoded;           // original decoded token (has uid, email, etc.)
-    req.user.claims = claims;     // convenience alias
-    req.user.admin = isAdmin;     // normalized boolean flag
+    req.user = decoded;
+    req.user.claims = claims;
+    req.user.admin = isAdmin;
     if (!req.user.role && role) {
       req.user.role = role;
+    }
+
+    // ✅ Update lastActiveAt in Firestore
+    try {
+      const db = admin.firestore();
+      await db.collection("users").doc(decoded.uid).set(
+        {
+          email: decoded.email || "",
+          lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (updateErr) {
+      console.warn("⚠️ Failed to update lastActiveAt for user", decoded.uid, updateErr);
+      // Don’t block the request if this fails
     }
 
     return next();

@@ -131,26 +131,27 @@ export default function Analytics() {
 
 // --- replace your activeUsers useMemo with this one ---
 const activeUsers = React.useMemo(() => {
-  // If backend provided users with signals, use them
   if (users.length > 0) {
     const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
     const nowTs = now.getTime();
 
-    if (users.some((u) => typeof u.active === "boolean")) {
-      return users.filter((u) => u.active === true).length;
-    }
+    // If we have lastActiveAt, use it
     if (users.some((u) => u.lastActiveAt)) {
       return users.filter((u) => {
         const d = toDate(u.lastActiveAt);
         return d && nowTs - d.getTime() <= THIRTY_DAYS;
       }).length;
     }
-    // fallback if users exist but have no signals
+
+    // Fallback: explicit active flag
+    if (users.some((u) => typeof u.active === "boolean")) {
+      return users.filter((u) => u.active).length;
+    }
+
     return users.length;
   }
 
-  // ✅ No users from API? Derive from reports:
-  // “Active” ≈ count of unique reporters this month
+  // No users at all -> fallback from reports
   return uniqueReportersSince(reports, monthStart);
 }, [users, reports, monthStart, now]);
 
@@ -225,26 +226,10 @@ const activeUsers = React.useMemo(() => {
         let rep: ReportRow[] = [];
         let usr: UserRow[] = [];
 
-        // Prefer consolidated overview
-        const o = await apiFetch<OverviewResp>("/overview");
-        if (o.ok && o.data?.ok) {
-          rep = o.data.data?.reports ?? [];
-          usr = o.data.data?.users ?? [];
-        }
-
-        // Fallbacks
-        if (rep.length === 0) {
-          const from = new Date();
-          from.setMonth(from.getMonth() - 13);
-          const r = await apiFetch<ListResp<ReportRow[]>>(`/reports?limit=2000&from=${from.toISOString()}`);
-          if (r.ok && r.data?.ok) rep = r.data.data ?? [];
-        }
-
-        if (usr.length === 0) {
-          const u = await apiFetch<ListResp<UserRow[]>>(`/users?limit=2000`);
-          if (u.ok) {
-            usr = u.data?.data ?? (Array.isArray(u.data) ? (u.data as UserRow[]) : []);
-          }
+        const o = await apiFetch<{ ok: boolean; reports: ReportRow[]; users: UserRow[] }>("/overview");
+        if (o.ok && o.data) {
+          rep = o.data.reports ?? [];
+          usr = o.data.users ?? [];
         }
 
         setReports(rep);

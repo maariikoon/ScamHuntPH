@@ -146,7 +146,11 @@ app.get("/overview", requireAuth, async (req, res) => {
       console.warn("⚠️ No users collection found:", err.message);
     }
 
-    return res.json({ ok: true, data: { reports, users } });
+    return res.json({
+      ok: true,
+      reports,
+      users,
+    });
   } catch (e) {
     console.error("❌ Analytics error:", e);
     return res.status(500).json({ ok: false, error: String(e) });
