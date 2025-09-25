@@ -11,11 +11,108 @@ app.use(corsMiddleware);
 // ANALYTICS ROUTES
 // ========================================================================
 
-console.log("📩 POST /analytics handler registered");
-// 🔹 Overview endpoint
+// 🔹 Summary endpoint (lightweight for mobile dashboard)
+app.get("/summary", requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+
+    // Count this user's reports by status
+    const statuses = ["pending", "verified", "declined"];
+    const userCounts = {};
+    await Promise.all(
+      statuses.map(async (s) => {
+        const snap = await db
+          .collection("reports")
+          .where("userId", "==", uid)
+          .where("status", "==", s)
+          .count()
+          .get();
+        userCounts[s] = snap.data().count || 0;
+      })
+    );
+
+    // Find most reported category (last 30 days, global)
+    const from = new Date();
+    from.setDate(from.getDate() - 30);
+    const catSnap = await db
+      .collection("reports")
+      .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(from))
+      .get();
+
+    const catCounts = {};
+    catSnap.forEach((doc) => {
+      const v = doc.data();
+      const cat = v.category || "Other";
+      catCounts[cat] = (catCounts[cat] || 0) + 1;
+    });
+
+    let popularCategory = "—";
+    if (Object.keys(catCounts).length > 0) {
+      popularCategory = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0][0];
+    }
+
+    // Current user's reports today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todaySnap = await db
+      .collection("reports")
+      .where("userId", "==", uid)
+      .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(today))
+      .where("createdAt", "<", admin.firestore.Timestamp.fromDate(tomorrow))
+      .get();
+
+    const todayReports = todaySnap.size;
+
+    // Count current user's reports by status (redundant but explicit)
+    const userReportsVerifiedSnap = await db.collection("reports")
+      .where("userId", "==", uid)
+      .where("status", "==", "verified")
+      .count()
+      .get();
+
+    const userReportsPendingSnap = await db.collection("reports")
+      .where("userId", "==", uid)
+      .where("status", "==", "pending")
+      .count()
+      .get();
+
+    const userReportsVerified = userReportsVerifiedSnap.data().count || 0;
+    const userReportsPending = userReportsPendingSnap.data().count || 0;
+
+    // total = sum of all userCounts
+    const userReportsTotal =
+      (userCounts.pending || 0) +
+      (userCounts.verified || 0) +
+      (userCounts.declined || 0);
+
+    return res.json({
+      ok: true,
+      data: {
+        // ✅ use userCounts here
+        verified: userCounts.verified || 0,
+        pending: userCounts.pending || 0,
+        declined: userCounts.declined || 0,
+
+        popularCategory,            // global
+        userReportsToday: todayReports,
+        userReportsTotal,           // all statuses
+        userReportsVerified,        // redundancy but explicit
+        userReportsPending,         // redundancy but explicit
+      },
+    });
+  } catch (e) {
+    console.error("❌ Analytics summary error:", e);
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+
+// Existing heavy overview (keep for admin)
 app.get("/overview", requireAuth, async (req, res) => {
   try {
-    // Reports from last 12 months
     const from = new Date();
     from.setMonth(from.getMonth() - 12);
 
@@ -33,7 +130,6 @@ app.get("/overview", requireAuth, async (req, res) => {
       };
     });
 
-    // Users collection
     let users = [];
     try {
       const usersSnap = await db.collection("users").get();
@@ -53,6 +149,40 @@ app.get("/overview", requireAuth, async (req, res) => {
     return res.json({ ok: true, data: { reports, users } });
   } catch (e) {
     console.error("❌ Analytics error:", e);
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+// ========================================================================
+// 🔹 New lightweight admin dashboard summary
+// ========================================================================
+app.get("/admin/overview", requireAuth, async (req, res) => {
+  try {
+    const reportsSnap = await db.collection("reports").get();
+    const totalReports = reportsSnap.size;
+
+    let pendingReviews = 0;
+    let verifiedReports = 0;
+    reportsSnap.forEach((doc) => {
+      const v = doc.data();
+      if (v.status === "pending") pendingReviews++;
+      if (v.status === "verified") verifiedReports++;
+    });
+
+    const usersSnap = await db.collection("users").get();
+    const activeUsers = usersSnap.size;
+
+    return res.json({
+      ok: true,
+      data: {
+        totalReports,
+        pendingReviews,
+        verifiedReports,
+        activeUsers,
+      },
+    });
+  } catch (e) {
+    console.error("❌ Admin overview error:", e);
     return res.status(500).json({ ok: false, error: String(e) });
   }
 });

@@ -23,6 +23,7 @@ if (!admin.apps.length) {
 const lessons = require("./routes/lessons");     // exports an express app
 const reports = require("./routes/reports");     // exports an express app
 const analytics = require("./routes/analytics"); // exports an express app
+const notifications = require("./routes/notifications");
 
 // ------------------------------------------------------------------
 // One consolidated API surface (recommended)
@@ -43,6 +44,7 @@ api.get("/", (_req, res) => {
 api.use("/reports", reports);
 api.use("/analytics", analytics);
 api.use("/lessons", lessons);
+api.use("/notifications", notifications);
 
 // JSON 404 (helps catch wrong paths/URLs from the frontend)
 api.use((req, res) => {
@@ -58,6 +60,7 @@ exports.api = onRequest(api);
 exports.reports = onRequest(reports);
 exports.analytics = onRequest(analytics);
 exports.lessons  = onRequest(lessons);
+exports.notifications = onRequest(notifications);
 
 // Dedicated health endpoint (optional)
 exports.health = onRequest((req, res) => {

@@ -45,7 +45,7 @@ const REGION_OPTIONS = [
 ];
 
 // ✅ backend base for admin endpoints
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'https://scamhunt-bcvrqgcc6a-as.a.run.app';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'https://analytics-bcvrqgcc6a-as.a.run.app';
 
 // Small helper to call backend with ID token
 async function fetchOverview() {

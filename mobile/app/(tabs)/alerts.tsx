@@ -5,6 +5,7 @@ import { Link } from "expo-router";
 export default function Alerts() {
   return (
     <View style={styles.container}>
+      <Text style={styles.title}>Quick Links</Text>
 
       {/* Navigate to Your Reports */}
       <Link href="/reports/myreports" asChild>
@@ -36,6 +37,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ccc",
     marginBottom: 16,
+    backgroundColor: "#fff",
   },
   emoji: { fontSize: 28, marginRight: 12 },
   cardText: { fontSize: 18, fontWeight: "600" },
