@@ -24,6 +24,7 @@ const lessons = require("./routes/lessons");     // exports an express app
 const reports = require("./routes/reports");     // exports an express app
 const analytics = require("./routes/analytics"); // exports an express app
 const notifications = require("./routes/notifications");
+const users = require("./routes/users");
 
 // ------------------------------------------------------------------
 // One consolidated API surface (recommended)
@@ -45,6 +46,7 @@ api.use("/reports", reports);
 api.use("/analytics", analytics);
 api.use("/lessons", lessons);
 api.use("/notifications", notifications);
+api.use("/admin/users", users);
 
 // JSON 404 (helps catch wrong paths/URLs from the frontend)
 api.use((req, res) => {
@@ -61,6 +63,7 @@ exports.reports = onRequest(reports);
 exports.analytics = onRequest(analytics);
 exports.lessons  = onRequest(lessons);
 exports.notifications = onRequest(notifications);
+exports.users = onRequest(users);
 
 // Dedicated health endpoint (optional)
 exports.health = onRequest((req, res) => {
