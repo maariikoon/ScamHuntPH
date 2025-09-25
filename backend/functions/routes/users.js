@@ -50,35 +50,66 @@ async function fetchUser(uid) {
 /* ---------- Shared list handler ---------- */
 async function listHandler(req, res) {
   try {
-    const { q = "", role = "", status = "" } = req.body || req.query || {};
+    const params = req.method === "POST" ? (req.body || {}) : (req.query || {});
+    const { q = "", role = "", status = "" } = params;
+
+    let usersRef = db.collection("users");
+    let adminsRef = db.collection("admins");
+
+    if (role) {
+      if (ADMIN_ROLES.includes(role)) {
+        // Admin roles only exist in admins collection
+        adminsRef = adminsRef.where("role", "==", role);
+        // exclude users collection
+        usersRef = db.collection("users").where("__name__", "==", "_NO_MATCH_");
+      } else if (role === "user") {
+        // Do not filter here — we’ll filter “user” in memory
+        // because many user docs don’t have a role field at all
+      } else {
+        // any unknown role → no results
+        usersRef = db.collection("users").where("__name__", "==", "_NO_MATCH_");
+        adminsRef = db.collection("admins").where("__name__", "==", "_NO_MATCH_");
+      }
+    }
+
+    if (status) {
+      usersRef = usersRef.where("status", "==", status);
+      adminsRef = adminsRef.where("status", "==", status);
+    }
 
     const [usersSnap, adminsSnap] = await Promise.all([
-      db.collection("users").get(),
-      db.collection("admins").get(),
+      usersRef.get(),
+      adminsRef.get(),
     ]);
 
-    const uids = new Set([...usersSnap.docs.map(d => d.id), ...adminsSnap.docs.map(d => d.id)]);
-    const rows = [];
+    const uids = new Set([
+      ...usersSnap.docs.map((d) => d.id),
+      ...adminsSnap.docs.map((d) => d.id),
+    ]);
 
+    let rows = [];
     for (const uid of uids) {
       const row = await fetchUser(uid);
       row.reportCount = await getReportCount(uid);
       rows.push(row);
     }
 
-    // Filter
-    let items = rows;
+    // 🔎 In-memory filters
     if (q) {
       const qLower = String(q).toLowerCase();
-      items = items.filter(
-        u => u.email.toLowerCase().includes(qLower) ||
-             (u.displayName || "").toLowerCase().includes(qLower)
+      rows = rows.filter(
+        (u) =>
+          u.email.toLowerCase().includes(qLower) ||
+          (u.displayName || "").toLowerCase().includes(qLower)
       );
     }
-    if (role) items = items.filter(u => u.role === role);
-    if (status) items = items.filter(u => u.status === status);
 
-    return res.json({ ok: true, data: { items, total: items.length } });
+    if (role === "user") {
+      // treat missing role as "user"
+      rows = rows.filter((u) => !u.role || u.role === "user");
+    }
+
+    return res.json({ ok: true, data: { items: rows, total: rows.length } });
   } catch (e) {
     console.error("❌ Users list error:", e);
     return res.status(500).json({ ok: false, error: String(e) });
