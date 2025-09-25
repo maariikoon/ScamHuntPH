@@ -29,15 +29,7 @@ type UserRow = {
   lastActiveAt?: string | number | null;
 };
 
-type OverviewResp = {
-  ok: boolean;
-  data?: {
-    reports?: ReportRow[];
-    users?: UserRow[];
-  };
-};
 
-type ListResp<T> = { ok: boolean; data?: T };
 
 /* --------------- Helpers --------------- */
 const fmtMonth = new Intl.DateTimeFormat("en-PH", { month: "short", year: "2-digit" });
