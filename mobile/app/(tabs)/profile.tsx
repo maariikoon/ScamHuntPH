@@ -38,6 +38,7 @@ export default function Profile() {
   const [loadingImpact, setLoadingImpact] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+  const goTo = (path: string) => router.push(path);
 
   const fetchUserAndImpact = useCallback(async () => {
     const user = auth.currentUser;
@@ -196,12 +197,18 @@ function KPI({ icon, label, value }: { icon: any; label: string; value: number }
 function Row({
   icon,
   label,
+  onPress,
 }: {
   icon: any;
   label: string;
+  onPress?: () => void;
 }) {
   return (
-    <TouchableOpacity activeOpacity={0.8} style={S.listItem}>
+    <TouchableOpacity
+      activeOpacity={0.8}
+      style={S.listItem}
+      onPress={onPress} // ← make pressable
+    >
       <View style={S.rowLeft}>
         <Ionicons name={icon} size={20} color={C.primary} />
         <Text style={S.listText}>{label}</Text>

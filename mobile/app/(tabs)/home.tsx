@@ -138,9 +138,23 @@ function SkeletonCard() {
   );
 }
 
-function QuickAction({ emoji, label }: { emoji: string; label: string }) {
+function QuickAction({
+  emoji,
+  label,
+  onPress,
+}: {
+  emoji: string;
+  label: string;
+  onPress?: () => void;
+}) {
   return (
-    <TouchableOpacity activeOpacity={0.88} style={S.quick} accessibilityRole="button" accessibilityLabel={label}>
+    <TouchableOpacity
+      activeOpacity={0.88}
+      style={S.quick}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress} // 🔹 make it pressable
+    >
       <Text style={S.emoji}>{emoji}</Text>
       <Text style={S.quickLabel}>{label}</Text>
     </TouchableOpacity>

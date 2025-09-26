@@ -46,7 +46,6 @@ export default function Report(): JSX.Element {
   // Clipboard
   const [clipText, setClipText] = useState<string>("");
 
-  // Re-check clipboard every time the screen is focused
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
@@ -70,56 +69,40 @@ export default function Report(): JSX.Element {
     }, [])
   );
 
-  // 🔹 Pick an image from gallery
+  // 🔹 Pick an image
   const pickImage = async (): Promise<void> => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
     });
-
     if (!result.canceled) {
       setImage(result.assets[0].uri);
     }
   };
 
-  // 1) Create report
-  async function createReport(
-    token: string,
-    msg: string,
-    cat: string,
-    reg: string
-  ): Promise<string> {
+  // API helpers
+  async function createReport(token: string, msg: string, cat: string, reg: string): Promise<string> {
     const res = await fetch(`${API_BASE_URL}/`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ message: msg, category: cat, region: reg }),
     });
-
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || "Failed to create report");
     return data.id as string;
   }
 
-  // 2) Signed URL (with reportId)
   async function getSignedUrl(token: string, reportId: string, filename: string) {
     const res = await fetch(`${API_BASE_URL}/uploadUrl`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ reportId, filename }),
     });
-
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || "Failed to get signed URL");
     return data as { uploadUrl: string; readUrl: string };
   }
 
-  // 3) Upload to GCS
   async function uploadWithSignedUrl(uri: string, uploadUrl: string) {
     const resp = await fetch(uri);
     const blob = await resp.blob();
@@ -130,31 +113,25 @@ export default function Report(): JSX.Element {
       headers: { "Content-Type": contentType },
       body: blob,
     });
-
     if (!put.ok) {
       const errText = await put.text();
       throw new Error(`Failed to upload file to GCS: ${put.status} ${errText}`);
     }
   }
 
-  // 4) Patch evidence
   async function addEvidence(token: string, reportId: string, url: string) {
     const res = await fetch(`${API_BASE_URL}/${reportId}/evidence`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ url }),
     });
-
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || "Failed to attach evidence");
   }
 
   const canSubmit = useMemo(() => message.trim().length > 0 && !loading, [message, loading]);
 
-  // 🔹 Submit flow
+  // 🔹 Submit flow with preview & thank you
   const handleSubmit = async (): Promise<void> => {
     const user = auth.currentUser;
     if (!user) return Alert.alert("Error", "You must be logged in");
@@ -163,30 +140,42 @@ export default function Report(): JSX.Element {
       return Alert.alert("Missing message", "Please paste or type the scam text.");
     }
 
-    setLoading(true);
+    Alert.alert(
+      "Confirm Report",
+      `You are about to submit this message:\n\n"${message.trim()}"\n\nDo you want to continue?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Submit",
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const token = await user.getIdToken();
+              const reportId = await createReport(token, message.trim(), category, region);
 
-    try {
-      const token = await user.getIdToken();
+              if (image) {
+                const filename = "screenshot.jpg";
+                const { uploadUrl, readUrl } = await getSignedUrl(token, reportId, filename);
+                await uploadWithSignedUrl(image, uploadUrl);
+                await addEvidence(token, reportId, readUrl);
+              }
 
-      // 1. Create report
-      const reportId = await createReport(token, message.trim(), category, region);
+              Alert.alert(
+                "✅ Report Submitted",
+                "Thank you for submitting a report. Your contribution helps raise awareness and protect others. Our team will review and verify the details you provided."
+              );
 
-      // 2. If screenshot selected → upload & attach
-      if (image) {
-        const filename = "screenshot.jpg";
-        const { uploadUrl, readUrl } = await getSignedUrl(token, reportId, filename);
-        await uploadWithSignedUrl(image, uploadUrl);
-        await addEvidence(token, reportId, readUrl);
-      }
-
-      Alert.alert("✅ Success", "Report submitted.");
-      setMessage("");
-      setImage(null);
-    } catch (e: any) {
-      Alert.alert("Error", e.message);
-    } finally {
-      setLoading(false);
-    }
+              setMessage("");
+              setImage(null);
+            } catch (e: any) {
+              Alert.alert("Error", e.message);
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const pasteFromClipboard = async () => {
@@ -202,6 +191,11 @@ export default function Report(): JSX.Element {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Report a Scam</Text>
+
+        {/* New description */}
+        <Text style={styles.description}>
+          Help us build awareness by sharing scam messages you encounter. If you’ve received an SMS that seems suspicious, report it here. Your submission will be added to our database to support scam education, awareness, and future research.
+        </Text>
 
         {/* Clipboard prompt chip */}
         {clipText && message.trim().length === 0 && (
@@ -303,11 +297,7 @@ export default function Report(): JSX.Element {
         onPress={handleSubmit}
         disabled={!canSubmit}
       >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Submit Report</Text>
-        )}
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Submit Report</Text>}
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -318,7 +308,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   scrollContainer: { padding: 20, paddingBottom: 110 },
 
-  title: { fontSize: 28, fontWeight: "800", color: C.text, marginBottom: 16 },
+  title: { fontSize: 28, fontWeight: "800", color: C.text, marginBottom: 8 },
+
+  description: {
+    fontSize: 14,
+    color: C.sub,
+    marginBottom: 16,
+    textAlign: "left",
+  },
 
   /* Clipboard chip */
   clipChip: {
@@ -350,16 +347,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 1,
   },
-  input: {
-    minHeight: 120,
-    fontSize: 16,
-    color: C.text,
-  },
-  inputActions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 10,
-  },
+  input: { minHeight: 120, fontSize: 16, color: C.text },
+  inputActions: { flexDirection: "row", gap: 10, marginTop: 10 },
   inputBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -370,17 +359,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   inputBtnText: { color: C.primaryDark, fontWeight: "700" },
-  counter: {
-    position: "absolute",
-    right: 10,
-    bottom: 8,
-    fontSize: 12,
-    color: C.sub,
-  },
+  counter: { position: "absolute", right: 10, bottom: 8, fontSize: 12, color: C.sub },
 
   label: { fontSize: 16, fontWeight: "800", color: C.text, marginTop: 4, marginBottom: 8 },
 
-  /* Picker wrapper to look like a select box */
   selectWrap: {
     position: "relative",
     backgroundColor: C.cardBg,
