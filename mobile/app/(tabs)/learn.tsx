@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,8 +7,11 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
+  Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
+import React from "react";
 
 const API_BASE_URL = "https://lessons-bcvrqgcc6a-as.a.run.app";
 
@@ -20,11 +23,14 @@ type Lesson = {
 };
 
 export default function Learn() {
+  const router = useRouter();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+
+  // UI
+  const [query, setQuery] = useState("");
 
   const fetchLessons = useCallback(async () => {
     try {
@@ -33,8 +39,8 @@ export default function Learn() {
       const data = await res.json();
       console.log("📘 API response (lessons):", data);
 
-      if (data.ok) {
-        setLessons(data.lessons.filter((l: Lesson) => l.published));
+      if (data.ok && Array.isArray(data.lessons)) {
+        setLessons((data.lessons as Lesson[]).filter((l) => l.published));
         setError(null);
       } else {
         setError(data.error || "Failed to fetch lessons.");
@@ -52,29 +58,85 @@ export default function Learn() {
     fetchLessons();
   }, [fetchLessons]);
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return lessons;
+    return lessons.filter(
+      (l) =>
+        l.title.toLowerCase().includes(q) ||
+        (l.category || "").toLowerCase().includes(q)
+    );
+  }, [lessons, query]);
+
   const renderItem = ({ item }: { item: Lesson }) => (
     <TouchableOpacity
-      style={styles.lessonItem}
+      style={styles.card}
+      activeOpacity={0.88}
       onPress={() =>
-        router.push({ pathname: "/lessons/[lessonId]", params: { learnId: item.id } })
+        router.push({
+          pathname: "/lessons/[lessonId]",
+          params: { learnId: item.id }, // ✅ unchanged
+        })
       }
     >
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.category}>{item.category}</Text>
+      <Text style={styles.cardTitle} numberOfLines={2}>
+        {item.title}
+      </Text>
+      <View style={styles.metaRow}>
+        <Text style={styles.pill}>{item.category || "General"}</Text>
+        <Text style={styles.chev}>›</Text>
+      </View>
+      <View style={styles.cardAccent} />
     </TouchableOpacity>
+  );
+
+  const ListHeader = () => (
+    <View style={styles.headerWrap}>
+      <Text style={styles.heading}>Learn</Text>
+      <View style={styles.searchRow}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search lessons…"
+          style={styles.search}
+          placeholderTextColor="#64748b"
+          autoCorrect={false}
+          returnKeyType="search"
+        />
+        {query.length > 0 && (
+          <Pressable
+            onPress={() => setQuery("")}
+            style={({ pressed }) => [styles.clearBtn, pressed && { opacity: 0.7 }]}
+            hitSlop={8}
+          >
+            <Text style={styles.clearTxt}>×</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
   );
 
   return (
     <View style={styles.container}>
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
+        <>
+          <ListHeader />
+          <ActivityIndicator size="large" color={C.primary} style={{ marginTop: 20 }} />
+        </>
       ) : error ? (
-        <Text style={styles.error}>{error}</Text>
+        <View style={styles.centerWrap}>
+          <Text style={styles.error}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={fetchLessons}>
+            <Text style={styles.retryTxt}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
-          data={lessons}
+          data={filtered}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          ListHeaderComponent={ListHeader}
+          contentContainerStyle={{ paddingBottom: 24 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -84,24 +146,114 @@ export default function Learn() {
               }}
             />
           }
+          ListEmptyComponent={
+            <View style={styles.centerWrap}>
+              <Text style={styles.empty}>No lessons found.</Text>
+              {!!query && <Text style={styles.emptySub}>Try a different search.</Text>}
+            </View>
+          }
         />
       )}
     </View>
   );
 }
 
+/* ---------- Theme ---------- */
+const C = {
+  bg: "#ffffff",
+  text: "#0f172a",
+  sub: "#64748b",
+  line: "#e5e7eb",
+  cardBg: "#f8fafc",
+  primary: "#2563eb",
+};
+
+/* ---------- Styles ---------- */
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#fff" },
-  heading: { fontSize: 22, fontWeight: "bold", marginBottom: 16 },
-  lessonItem: {
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    marginBottom: 12,
-    backgroundColor: "#f9f9f9",
+  container: { flex: 1, backgroundColor: C.bg },
+
+  headerWrap: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
+  heading: { fontSize: 24, fontWeight: "800", color: C.text, marginBottom: 8 },
+
+  searchRow: { position: "relative" },
+  search: {
+    backgroundColor: C.cardBg,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.line,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: C.text,
   },
-  title: { fontSize: 18, fontWeight: "600" },
-  category: { fontSize: 14, color: "#666" },
-  error: { color: "red", fontSize: 16, textAlign: "center", marginTop: 40 },
+  clearBtn: {
+    position: "absolute",
+    right: 8,
+    top: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#e2e8f0",
+  },
+  clearTxt: { color: C.text, fontSize: 18, fontWeight: "700", lineHeight: 18 },
+
+  card: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 14,
+    backgroundColor: C.cardBg,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.line,
+    // subtle shadow
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    overflow: "hidden",
+  },
+  cardTitle: { fontSize: 16, fontWeight: "800", color: C.text },
+  metaRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  pill: {
+    fontSize: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#e2e8f0",
+    color: C.text,
+    overflow: "hidden",
+  },
+  chev: { fontSize: 24, color: "#94a3b8", marginLeft: 8 },
+
+  cardAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: C.primary,
+    borderTopLeftRadius: 14,
+    borderBottomLeftRadius: 14,
+  },
+
+  centerWrap: { alignItems: "center", justifyContent: "center", padding: 24 },
+  error: { color: "#ef4444", fontSize: 16, textAlign: "center", marginBottom: 12 },
+  retryBtn: {
+    backgroundColor: C.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  retryTxt: { color: "#fff", fontWeight: "800" },
+
+  empty: { color: C.text, fontSize: 16, marginTop: 20 },
+  emptySub: { color: C.sub, fontSize: 14, marginTop: 6 },
 });

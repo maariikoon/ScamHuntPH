@@ -1,4 +1,5 @@
-import { JSX, useState } from "react";
+// app/(tabs)/report.tsx
+import { JSX, useCallback, useState, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,21 +9,66 @@ import {
   Image,
   ScrollView,
   View,
+  ActivityIndicator,
+  Platform,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
+import { useFocusEffect } from "@react-navigation/native";
 import { auth } from "../../src/firebase";
 
 const API_BASE_URL = "https://reports-bcvrqgcc6a-as.a.run.app";
 
+/* -------------------- Theme -------------------- */
+const C = {
+  bg: "#ffffff",
+  cardBg: "#f8fafc",
+  text: "#0f172a",
+  sub: "#64748b",
+  line: "#e5e7eb",
+  primary: "#2563eb",
+  primaryDark: "#1e40af",
+  danger: "#ef4444",
+};
+
+/* -------------------- Component -------------------- */
 export default function Report(): JSX.Element {
   const [message, setMessage] = useState<string>("");
-  const [category, setCategory] = useState<string>("Phishing");
+  const [category, setCategory] = useState<string>("Phishing/Smishing");
   const [region, setRegion] = useState<string>("NCR");
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+
+  // Clipboard
+  const [clipText, setClipText] = useState<string>("");
+
+  // Re-check clipboard every time the screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          const has = await Clipboard.hasStringAsync();
+          if (!mounted) return;
+          if (has) {
+            const txt = await Clipboard.getStringAsync();
+            if (mounted) setClipText(txt.trim());
+          } else {
+            setClipText("");
+          }
+        } catch {
+          // ignore
+        }
+      })();
+      return () => {
+        mounted = false;
+      };
+    }, [])
+  );
 
   // 🔹 Pick an image from gallery
   const pickImage = async (): Promise<void> => {
@@ -36,12 +82,12 @@ export default function Report(): JSX.Element {
     }
   };
 
-  // 🔹 Step 1: Create report first
+  // 1) Create report
   async function createReport(
     token: string,
-    message: string,
-    category: string,
-    region: string
+    msg: string,
+    cat: string,
+    reg: string
   ): Promise<string> {
     const res = await fetch(`${API_BASE_URL}/`, {
       method: "POST",
@@ -49,7 +95,7 @@ export default function Report(): JSX.Element {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ message, category, region }),
+      body: JSON.stringify({ message: msg, category: cat, region: reg }),
     });
 
     const data = await res.json();
@@ -57,7 +103,7 @@ export default function Report(): JSX.Element {
     return data.id as string;
   }
 
-  // 🔹 Step 2: Ask backend for signed URL (now includes reportId)
+  // 2) Signed URL (with reportId)
   async function getSignedUrl(token: string, reportId: string, filename: string) {
     const res = await fetch(`${API_BASE_URL}/uploadUrl`, {
       method: "POST",
@@ -70,14 +116,13 @@ export default function Report(): JSX.Element {
 
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || "Failed to get signed URL");
-    return data; // { uploadUrl, readUrl }
+    return data as { uploadUrl: string; readUrl: string };
   }
 
-  // 🔹 Step 3: Upload directly to GCS
+  // 3) Upload to GCS
   async function uploadWithSignedUrl(uri: string, uploadUrl: string) {
     const resp = await fetch(uri);
     const blob = await resp.blob();
-
     const contentType = blob.type || "application/octet-stream";
 
     const put = await fetch(uploadUrl, {
@@ -92,7 +137,7 @@ export default function Report(): JSX.Element {
     }
   }
 
-  // 🔹 Step 4: Patch report to attach evidence
+  // 4) Patch evidence
   async function addEvidence(token: string, reportId: string, url: string) {
     const res = await fetch(`${API_BASE_URL}/${reportId}/evidence`, {
       method: "PATCH",
@@ -107,26 +152,30 @@ export default function Report(): JSX.Element {
     if (!res.ok || !data.ok) throw new Error(data.error || "Failed to attach evidence");
   }
 
-  // 🔹 Submit flow (new order)
+  const canSubmit = useMemo(() => message.trim().length > 0 && !loading, [message, loading]);
+
+  // 🔹 Submit flow
   const handleSubmit = async (): Promise<void> => {
     const user = auth.currentUser;
     if (!user) return Alert.alert("Error", "You must be logged in");
+
+    if (message.trim().length === 0) {
+      return Alert.alert("Missing message", "Please paste or type the scam text.");
+    }
 
     setLoading(true);
 
     try {
       const token = await user.getIdToken();
 
-      // 1. Create report first
-      const reportId = await createReport(token, message, category, region);
+      // 1. Create report
+      const reportId = await createReport(token, message.trim(), category, region);
 
       // 2. If screenshot selected → upload & attach
       if (image) {
         const filename = "screenshot.jpg";
         const { uploadUrl, readUrl } = await getSignedUrl(token, reportId, filename);
-
         await uploadWithSignedUrl(image, uploadUrl);
-
         await addEvidence(token, reportId, readUrl);
       }
 
@@ -140,69 +189,109 @@ export default function Report(): JSX.Element {
     }
   };
 
+  const pasteFromClipboard = async () => {
+    try {
+      const txt = await Clipboard.getStringAsync();
+      if (txt?.trim()) setMessage(txt.trim());
+    } catch {}
+  };
+
+  const clearMessage = () => setMessage("");
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Report a Scam</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Paste scam message here..."
-          multiline
-          value={message}
-          onChangeText={setMessage}
-        />
+        {/* Clipboard prompt chip */}
+        {clipText && message.trim().length === 0 && (
+          <Pressable onPress={pasteFromClipboard} style={({ pressed }) => [styles.clipChip, pressed && { opacity: 0.7 }]}>
+            <Ionicons name="clipboard-outline" size={16} color={C.primaryDark} />
+            <Text numberOfLines={1} style={styles.clipChipText}>
+              Paste from clipboard
+            </Text>
+          </Pressable>
+        )}
 
-        <Text style={styles.label}>Select Category</Text>
-        <Picker selectedValue={category} style={styles.picker} onValueChange={setCategory}>
-          <Picker.Item label="Phishing/Smishing" value="Phishing/Smishing" />
-          <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
-          <Picker.Item label="Fake Job" value="Fake Job" />
-          <Picker.Item label="Loan Scam" value="Loan Scam" />
-          <Picker.Item label="Investment Scam" value="Investment Scam" />
-          <Picker.Item label="Gcash Scam" value="Gcash Scam" />
-          <Picker.Item label="Identity theft" value="Identity theft" />
-          <Picker.Item label="Lottery Scams" value="Lottery Scams" />
-          <Picker.Item label="Others" value="Others" />
-        </Picker>
-
-        <Text style={styles.label}>Select Region</Text>
-        <Picker selectedValue={region} style={styles.picker} onValueChange={setRegion}>
-          <Picker.Item label="NCR – National Capital Region" value="NCR" />
-          <Picker.Item label="Region I – Ilocos Region" value="Region I" />
-          <Picker.Item label="Region II – Cagayan Valley" value="Region II" />
-          <Picker.Item label="Region III – Central Luzon" value="Region III" />
-          <Picker.Item label="Region IV-A – CALABARZON" value="Region IV-A" />
-          <Picker.Item label="Region IV-B – MIMAROPA" value="Region IV-B" />
-          <Picker.Item label="Region V – Bicol Region" value="Region V" />
-          <Picker.Item label="Region VI – Western Visayas" value="Region VI" />
-          <Picker.Item label="Region VII – Central Visayas" value="Region VII" />
-          <Picker.Item label="Region VIII – Eastern Visayas" value="Region VIII" />
-          <Picker.Item label="Region IX – Zamboanga Peninsula" value="Region IX" />
-          <Picker.Item label="Region X – Northern Mindanao" value="Region X" />
-          <Picker.Item label="Region XI – Davao Region" value="Region XI" />
-          <Picker.Item label="Region XII – SOCCSKSARGEN" value="Region XII" />
-          <Picker.Item label="Region XIII – Caraga" value="Region XIII" />
-          <Picker.Item label="CAR – Cordillera Administrative Region" value="CAR" />
-          <Picker.Item
-            label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao"
-            value="BARMM"
+        {/* Message input with actions */}
+        <View style={styles.inputWrap}>
+          <TextInput
+            style={styles.input}
+            placeholder="Paste scam message here..."
+            multiline
+            value={message}
+            onChangeText={setMessage}
+            textAlignVertical="top"
+            autoCorrect={false}
           />
-        </Picker>
+          <View style={styles.inputActions}>
+            <Pressable onPress={pasteFromClipboard} style={({ pressed }) => [styles.inputBtn, pressed && { opacity: 0.7 }]}>
+              <Ionicons name="clipboard-outline" size={16} color={C.primary} />
+              <Text style={styles.inputBtnText}>Paste</Text>
+            </Pressable>
+            {message.length > 0 && (
+              <Pressable onPress={clearMessage} style={({ pressed }) => [styles.inputBtn, pressed && { opacity: 0.7 }]}>
+                <Ionicons name="close-circle-outline" size={16} color={C.sub} />
+                <Text style={styles.inputBtnText}>Clear</Text>
+              </Pressable>
+            )}
+          </View>
+          <Text style={styles.counter}>{message.length}</Text>
+        </View>
 
+        {/* Category */}
+        <Text style={styles.label}>Select Category</Text>
+        <View style={styles.selectWrap}>
+          <Picker selectedValue={category} onValueChange={setCategory} style={styles.picker}>
+            <Picker.Item label="Phishing/Smishing" value="Phishing/Smishing" />
+            <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
+            <Picker.Item label="Fake Job" value="Fake Job" />
+            <Picker.Item label="Loan Scam" value="Loan Scam" />
+            <Picker.Item label="Investment Scam" value="Investment Scam" />
+            <Picker.Item label="Gcash Scam" value="Gcash Scam" />
+            <Picker.Item label="Identity theft" value="Identity theft" />
+            <Picker.Item label="Lottery Scams" value="Lottery Scams" />
+            <Picker.Item label="Others" value="Others" />
+          </Picker>
+          <Ionicons name="chevron-down" size={18} color={C.sub} style={styles.selectIcon} />
+        </View>
+
+        {/* Region */}
+        <Text style={styles.label}>Select Region</Text>
+        <View style={styles.selectWrap}>
+          <Picker selectedValue={region} onValueChange={setRegion} style={styles.picker}>
+            <Picker.Item label="NCR – National Capital Region" value="NCR" />
+            <Picker.Item label="Region I – Ilocos Region" value="Region I" />
+            <Picker.Item label="Region II – Cagayan Valley" value="Region II" />
+            <Picker.Item label="Region III – Central Luzon" value="Region III" />
+            <Picker.Item label="Region IV-A – CALABARZON" value="Region IV-A" />
+            <Picker.Item label="Region IV-B – MIMAROPA" value="Region IV-B" />
+            <Picker.Item label="Region V – Bicol Region" value="Region V" />
+            <Picker.Item label="Region VI – Western Visayas" value="Region VI" />
+            <Picker.Item label="Region VII – Central Visayas" value="Region VII" />
+            <Picker.Item label="Region VIII – Eastern Visayas" value="Region VIII" />
+            <Picker.Item label="Region IX – Zamboanga Peninsula" value="Region IX" />
+            <Picker.Item label="Region X – Northern Mindanao" value="Region X" />
+            <Picker.Item label="Region XI – Davao Region" value="Region XI" />
+            <Picker.Item label="Region XII – SOCCSKSARGEN" value="Region XII" />
+            <Picker.Item label="Region XIII – Caraga" value="Region XIII" />
+            <Picker.Item label="CAR – Cordillera Administrative Region" value="CAR" />
+            <Picker.Item label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao" value="BARMM" />
+          </Picker>
+          <Ionicons name="chevron-down" size={18} color={C.sub} style={styles.selectIcon} />
+        </View>
+
+        {/* Evidence */}
         {image ? (
           <View style={styles.imagePreviewContainer}>
             <Image source={{ uri: image }} style={styles.imagePreview} />
-            <TouchableOpacity
-              style={styles.removeImageButton}
-              onPress={() => setImage(null)}
-            >
-              <Ionicons name="close-circle" size={28} color="red" />
+            <TouchableOpacity style={styles.removeImageButton} onPress={() => setImage(null)}>
+              <Ionicons name="close" size={18} color="#fff" />
             </TouchableOpacity>
           </View>
         ) : (
           <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-            <Ionicons name="image-outline" size={20} color="#007AFF" />
+            <Ionicons name="image-outline" size={18} color={C.primary} />
             <Text style={styles.imageButtonText}>Attach Screenshot</Text>
           </TouchableOpacity>
         )}
@@ -210,70 +299,150 @@ export default function Report(): JSX.Element {
 
       {/* fixed submit button */}
       <TouchableOpacity
-        style={[styles.fixedButton, loading && { opacity: 0.5 }]}
+        style={[styles.fixedButton, !canSubmit && { opacity: 0.6 }]}
         onPress={handleSubmit}
-        disabled={loading}
+        disabled={!canSubmit}
       >
-        <Text style={styles.buttonText}>
-          {loading ? "Submitting..." : "Submit Report"}
-        </Text>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Submit Report</Text>
+        )}
       </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
+/* -------------------- Styles -------------------- */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  scrollContainer: {
-    padding: 20,
-    paddingBottom: 100,
+  container: { flex: 1, backgroundColor: C.bg },
+  scrollContainer: { padding: 20, paddingBottom: 110 },
+
+  title: { fontSize: 28, fontWeight: "800", color: C.text, marginBottom: 16 },
+
+  /* Clipboard chip */
+  clipChip: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#e0e7ff",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginBottom: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#c7d2fe",
   },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
+  clipChipText: { color: C.primaryDark, fontWeight: "700" },
+
+  /* Input with accessories */
+  inputWrap: {
+    backgroundColor: C.cardBg,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.line,
+    padding: 10,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+  },
   input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    textAlignVertical: "top",
+    minHeight: 120,
+    fontSize: 16,
+    color: C.text,
   },
-  label: { fontSize: 16, fontWeight: "600", marginTop: 10 },
-  picker: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    marginBottom: 12,
+  inputActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
   },
-  fixedButton: {
+  inputBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#eef2ff",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  inputBtnText: { color: C.primaryDark, fontWeight: "700" },
+  counter: {
     position: "absolute",
-    bottom: 5,
-    left: 10,
     right: 10,
-    backgroundColor: "#007AFF",
-    padding: 13,
-    borderRadius: 8,
-    alignItems: "center",
+    bottom: 8,
+    fontSize: 12,
+    color: C.sub,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  imageButton: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  imageButtonText: { marginLeft: 8, color: "#007AFF", fontSize: 16 },
-  imagePreviewContainer: {
+
+  label: { fontSize: 16, fontWeight: "800", color: C.text, marginTop: 4, marginBottom: 8 },
+
+  /* Picker wrapper to look like a select box */
+  selectWrap: {
     position: "relative",
-    marginBottom: 12,
-    alignItems: "center",
+    backgroundColor: C.cardBg,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.line,
+    marginBottom: 14,
+    overflow: "hidden",
   },
-  imagePreview: {
-    width: 200,
-    height: 200,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ccc",
+  selectIcon: {
+    position: "absolute",
+    right: 10,
+    top: Platform.OS === "ios" ? 14 : 18,
+    pointerEvents: "none",
   },
+  picker: {
+    width: "100%",
+    color: C.text,
+    ...(Platform.OS === "ios"
+      ? { height: 44, paddingHorizontal: 10 }
+      : { height: 50, paddingHorizontal: 6 }),
+  },
+
+  imageButton: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 8 },
+  imageButtonText: { color: C.primary, fontSize: 16, fontWeight: "700" },
+
+  imagePreviewContainer: {
+    width: 220,
+    height: 220,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.line,
+    overflow: "hidden",
+    marginTop: 6,
+  },
+  imagePreview: { width: "100%", height: "100%" },
   removeImageButton: {
     position: "absolute",
-    top: -10,
-    right: -10,
-    backgroundColor: "white",
-    borderRadius: 50,
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
   },
+
+  fixedButton: {
+    position: "absolute",
+    bottom: 8,
+    left: 12,
+    right: 12,
+    backgroundColor: C.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "800" },
 });
