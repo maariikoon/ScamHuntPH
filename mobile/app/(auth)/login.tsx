@@ -2,7 +2,7 @@ import { JSX, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
 import { useRouter } from "expo-router";
-import { signInWithEmailAndPassword, UserCredential } from "firebase/auth";
+import { signInWithEmailAndPassword, UserCredential, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../src/firebase";
 import { MobileApi } from "../../src/utils/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,7 +16,6 @@ export default function Login(): JSX.Element {
   const handleLogin = async (): Promise<void> => {
     if (!email || !password) {
       Alert.alert("Error", "Please fill in all fields.");
-      console.log("⚠️ Login attempt failed: Missing email or password");
       return;
     }
 
@@ -45,6 +44,24 @@ export default function Login(): JSX.Element {
       }
 
       Alert.alert("Login Failed", friendlyMessage);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert("Forgot Password", "Please enter your email first.");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email.trim(), {
+        url: "https://scamhuntph-b3485.web.app/reset-password", // your hosted reset page
+        handleCodeInApp: true,
+      });
+      Alert.alert("📧 Email Sent", "Check your inbox for the password reset link.");
+    } catch (err: any) {
+      console.error("❌ Forgot password error:", err);
+      Alert.alert("Error", err.message);
     }
   };
 
@@ -83,6 +100,11 @@ export default function Login(): JSX.Element {
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
 
+      {/* Forgot Password */}
+      <TouchableOpacity onPress={handleForgotPassword}>
+        <Text style={styles.link}>Forgot your password?</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity onPress={() => router.replace("/(auth)/signup")}>
         <Text style={styles.link}>Don't have an account? Sign up</Text>
       </TouchableOpacity>
@@ -103,7 +125,7 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderRadius: 8,
     padding: 12,
-    paddingRight: 40, // space for eye icon
+    paddingRight: 40,
     marginBottom: 6,
   },
   eyeIcon: {

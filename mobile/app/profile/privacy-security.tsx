@@ -57,16 +57,20 @@ export default function PrivacySecurity() {
     await setDoc(doc(db, "users", user.uid), newPrefs, { merge: true });
   }
 
-  const handleChangePassword = async () => {
+  async function handleChangePassword() {
     const user = auth.currentUser;
     if (!user?.email) return;
+
     try {
-      await sendPasswordResetEmail(auth, user.email);
+      await sendPasswordResetEmail(auth, user.email, {
+        url: "https://scamhuntph-b3485.web.app/reset-password",
+        handleCodeInApp: true,
+      });
       Alert.alert("📧 Email Sent", "Check your inbox to reset your password.");
     } catch (err: any) {
       Alert.alert("Error", err.message);
     }
-  };
+}
 
   const confirmDelete = () => {
     Alert.alert(

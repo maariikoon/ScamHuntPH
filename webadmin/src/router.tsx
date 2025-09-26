@@ -25,6 +25,9 @@ import ReportDetail from "@/pages/ReportDetail";
 import ContentPage from "@/pages/Content";
 import LessonDetail from "@/pages/LessonDetail";
 
+import ResetPassword from "@/pages/security/ResetPassword";
+
+
 /** Wait for Firebase Auth to settle and return the user (or null). */
 function authReady(): Promise<import("firebase/auth").User | null> {
   return new Promise((resolve) => {
@@ -78,6 +81,12 @@ const loginRoute = createRoute({
     const { authed, isAdmin } = await getAuthState();
     if (authed && isAdmin) throw redirect({ to: "/admin", replace: true });
   },
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reset-password",
+  component: ResetPassword,
 });
 
 const adminRoute = createRoute({
@@ -157,6 +166,7 @@ const notFoundRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
+  resetPasswordRoute,
   adminRoute.addChildren([
     dashboardRoute,
     reportsRoute,

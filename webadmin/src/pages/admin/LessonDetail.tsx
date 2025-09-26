@@ -41,8 +41,8 @@ const CATS = [
 
 export default function LessonDetail(props: Props) {
   // Get id from prop or from route param
-  const routeParams = useParams({ from: "/admin/content/$id" });
-  const id = props.id ?? routeParams.id;
+  const routeParams = useParams({ from: "/admin/content/$lessonId" });
+  const id = props.id ?? routeParams.lessonId;
 
   const nav = useNavigate();
 
