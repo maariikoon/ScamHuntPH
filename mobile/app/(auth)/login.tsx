@@ -1,7 +1,5 @@
 import { JSX, useRef, useState } from "react";
-import {
-  SafeAreaView,
-} from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   StyleSheet,
   Text,
@@ -22,6 +20,7 @@ import {
 import { auth } from "../../src/firebase";
 import { MobileApi } from "../../src/utils/api";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 /* ---- Theme ---- */
 const C = {
@@ -29,13 +28,14 @@ const C = {
   text: "#0f172a",
   sub: "#64748b",
   line: "#e5e7eb",
-  primary: "#2563eb",       // web admin blue vibe
+  primary: "#2563eb", // web admin blue vibe
   primaryDark: "#1e40af",
   danger: "#ef4444",
   card: "#f8fafc",
 };
 
 export default function Login(): JSX.Element {
+  const { t } = useTranslation();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false);
@@ -50,7 +50,7 @@ export default function Login(): JSX.Element {
     const p = password;
 
     if (!e || !p) {
-      setErr("Please enter your email and password.");
+      setErr(t("login.errors.missingCreds", "Please enter your email and password."));
       return;
     }
 
@@ -64,15 +64,15 @@ export default function Login(): JSX.Element {
       router.replace("/home");
     } catch (error: any) {
       console.error("❌ Login failed:", error.code, error.message);
-      let friendlyMessage = "Something went wrong. Please try again.";
+      let friendlyMessage = t("login.errors.generic", "Something went wrong. Please try again.");
       if (error.code === "auth/invalid-credential" || error.code === "auth/wrong-password") {
-        friendlyMessage = "Incorrect email or password.";
+        friendlyMessage = t("login.errors.wrongPassword", "Incorrect email or password.");
       } else if (error.code === "auth/user-not-found") {
-        friendlyMessage = "No account found with this email.";
+        friendlyMessage = t("login.errors.userNotFound", "No account found with this email.");
       } else if (error.code === "auth/invalid-email") {
-        friendlyMessage = "Please enter a valid email address.";
+        friendlyMessage = t("login.errors.invalidEmail", "Please enter a valid email address.");
       } else if (error.code === "auth/too-many-requests") {
-        friendlyMessage = "Too many failed attempts. Please wait a few minutes.";
+        friendlyMessage = t("login.errors.tooMany", "Too many failed attempts. Please wait a few minutes.");
       }
       setErr(friendlyMessage);
     } finally {
@@ -83,7 +83,7 @@ export default function Login(): JSX.Element {
   const handleForgotPassword = async () => {
     const e = email.trim().toLowerCase();
     if (!e) {
-      Alert.alert("Forgot Password", "Please enter your email first.");
+      Alert.alert(t("login.forgotTitle", "Forgot Password"), t("login.enterEmailFirst", "Please enter your email first."));
       return;
     }
     try {
@@ -91,10 +91,10 @@ export default function Login(): JSX.Element {
         url: "https://scamhuntph-b3485.web.app/reset-password",
         handleCodeInApp: true,
       });
-      Alert.alert("📧 Email Sent", "Check your inbox for the password reset link.");
+      Alert.alert(t("login.emailSentTitle", "📧 Email Sent"), t("login.emailSentBody", "Check your inbox for the password reset link."));
     } catch (err: any) {
       console.error("❌ Forgot password error:", err);
-      Alert.alert("Error", err.message);
+      Alert.alert(t("common.error", "Error"), err.message);
     }
   };
 
@@ -109,8 +109,8 @@ export default function Login(): JSX.Element {
         <View style={S.wrap}>
           {/* Header */}
           <View style={{ alignItems: "center", marginBottom: 18 }}>
-            <Text style={S.title}>Welcome back</Text>
-            <Text style={S.subtitle}>Sign in to continue</Text>
+            <Text style={S.title}>{t("login.title", "Welcome back")}</Text>
+            <Text style={S.subtitle}>{t("login.subtitle", "Sign in to continue")}</Text>
           </View>
 
           {/* Card */}
@@ -122,7 +122,7 @@ export default function Login(): JSX.Element {
               </View>
               <TextInput
                 style={S.input}
-                placeholder="Email"
+                placeholder={t("login.email", "Email")}
                 placeholderTextColor={C.sub}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -130,12 +130,12 @@ export default function Login(): JSX.Element {
                 textContentType="emailAddress"
                 returnKeyType="next"
                 value={email}
-                onChangeText={(t) => {
-                  setEmail(t);
+                onChangeText={(tval) => {
+                  setEmail(tval);
                   if (err) setErr(null);
                 }}
                 onSubmitEditing={() => pwRef.current?.focus()}
-                accessibilityLabel="Email address"
+                accessibilityLabel={t("login.emailA11y", "Email address")}
               />
             </View>
 
@@ -147,27 +147,35 @@ export default function Login(): JSX.Element {
               <TextInput
                 ref={pwRef}
                 style={S.input}
-                placeholder="Password"
+                placeholder={t("login.password", "Password")}
                 placeholderTextColor={C.sub}
                 secureTextEntry={!showPassword}
                 value={password}
-                onChangeText={(t) => {
-                  setPassword(t);
+                onChangeText={(tval) => {
+                  setPassword(tval);
                   if (err) setErr(null);
                 }}
                 textContentType="password"
                 returnKeyType="done"
                 onSubmitEditing={handleLogin}
-                accessibilityLabel="Password"
+                accessibilityLabel={t("login.passwordA11y", "Password")}
               />
               <TouchableOpacity
                 style={S.trailingIcon}
                 onPress={() => setShowPassword((s) => !s)}
                 hitSlop={10}
                 accessibilityRole="button"
-                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                accessibilityLabel={
+                  showPassword
+                    ? t("login.hidePassword", "Hide password")
+                    : t("login.showPassword", "Show password")
+                }
               >
-                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={C.sub} />
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={18}
+                  color={C.sub}
+                />
               </TouchableOpacity>
             </View>
 
@@ -180,20 +188,24 @@ export default function Login(): JSX.Element {
               onPress={handleLogin}
               disabled={disabled}
               accessibilityRole="button"
+              accessibilityLabel={t("login.loginA11y", "Login")}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={S.btnText}>Login</Text>
+                <Text style={S.btnText}>{t("login.loginBtn", "Login")}</Text>
               )}
             </TouchableOpacity>
 
             {/* Links */}
             <TouchableOpacity onPress={handleForgotPassword} style={{ marginTop: 10 }}>
-              <Text style={S.link}>Forgot your password?</Text>
+              <Text style={S.link}>{t("login.forgot", "Forgot your password?")}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.replace("/(auth)/signup")} style={{ marginTop: 6 }}>
-              <Text style={S.link}>Don&#39;t have an account? Sign up</Text>
+            <TouchableOpacity
+              onPress={() => router.replace("/(auth)/signup")}
+              style={{ marginTop: 6 }}
+            >
+              <Text style={S.link}>{t("login.signup", "Don't have an account? Sign up")}</Text>
             </TouchableOpacity>
           </View>
         </View>

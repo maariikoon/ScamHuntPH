@@ -1,0 +1,32 @@
+{
+    "appName": "ScamHuntPH",
+    "common": {
+      "ok": "OK",
+      "cancel": "Cancel",
+      "save": "Save",
+      "language": "Language",
+      "english": "English",
+      "filipino": "Filipino"
+    },
+    "login": {
+      "title": "Login",
+      "email": "Email",
+      "password": "Password",
+      "button": "Login",
+      "forgot": "Forgot your password?",
+      "signup": "Don't have an account? Sign up"
+    },
+    "signup": {
+      "title": "Sign Up",
+      "button": "Create Account",
+      "haveAccount": "Already have an account? Log in"
+    },
+    "tabs": {
+      "home": "Home",
+      "learn": "Learn",
+      "report": "Report",
+      "alerts": "Alerts",
+      "profile": "Profile"
+    }
+  }
+  

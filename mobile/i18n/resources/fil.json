@@ -1,0 +1,32 @@
+{
+    "appName": "ScamHuntPH",
+    "common": {
+      "ok": "OK",
+      "cancel": "Kanselahin",
+      "save": "I-save",
+      "language": "Wika",
+      "english": "Ingles",
+      "filipino": "Filipino"
+    },
+    "login": {
+      "title": "Mag-login",
+      "email": "Email",
+      "password": "Password",
+      "button": "Mag-login",
+      "forgot": "Nakalimutan ang password?",
+      "signup": "Wala pang account? Mag-sign up"
+    },
+    "signup": {
+      "title": "Mag-sign up",
+      "button": "Gumawa ng Account",
+      "haveAccount": "May account na? Mag-login"
+    },
+    "tabs": {
+      "home": "Home",
+      "learn": "Aralin",
+      "report": "I-report",
+      "alerts": "Abiso",
+      "profile": "Profile"
+    }
+  }
+  

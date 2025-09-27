@@ -3,14 +3,21 @@
   "compilerOptions": {
     "strict": true,
     "jsx": "react-native",
+
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
-    }
+      "@/*": ["./*"]
+    },
+
+    /* ✅ needed for `import xx from "./file.json"` */
+    "resolveJsonModule": true,
+
+    /* ✅ smooth interop with CJS/ESM libs */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* ✅ faster builds, avoids type noise from deps */
+    "skipLibCheck": true
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx"
-, "app/(tabs)/_layout.tsx", "app/_layout.tsx"  ]
+  "include": ["**/*.ts", "**/*.tsx"]
 }
