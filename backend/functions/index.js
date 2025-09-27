@@ -1,4 +1,4 @@
-// functions/index.js
+// backend/functions/index.js
 const { onRequest } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2/options");
 const admin = require("firebase-admin");
@@ -25,6 +25,7 @@ const reports = require("./routes/reports");     // exports an express app
 const analytics = require("./routes/analytics"); // exports an express app
 const notifications = require("./routes/notifications");
 const users = require("./routes/users");
+const publicreports = require("./routes/publicreports");
 
 // ------------------------------------------------------------------
 // One consolidated API surface (recommended)
@@ -37,7 +38,7 @@ api.get("/", (_req, res) => {
   res.json({
     ok: true,
     message: "ScamHunt API v1 🚀",
-    routes: ["/reports", "/analytics", "/lessons", "/notifications", "/admin/users",],
+    routes: ["/reports", "/analytics", "/lessons", "/notifications", "/admin/users", "/publicreports"],
   });
 });
 
@@ -47,6 +48,7 @@ api.use("/analytics", analytics);
 api.use("/lessons", lessons);
 api.use("/notifications", notifications);
 api.use("/admin/users", users);
+api.use("/publicreports", publicreports);
 
 // JSON 404 (helps catch wrong paths/URLs from the frontend)
 api.use((req, res) => {
@@ -57,13 +59,14 @@ api.use((req, res) => {
 exports.api = onRequest(api);
 
 // ------------------------------------------------------------------
-// (Optional) Keep the individual functions too
+// Individual functions -- DO NOT REMOVE
 // ------------------------------------------------------------------
 exports.reports = onRequest(reports);
 exports.analytics = onRequest(analytics);
 exports.lessons  = onRequest(lessons);
 exports.notifications = onRequest(notifications);
 exports.users = onRequest(users);
+exports.publicreports = onRequest(publicreports);
 
 // Dedicated health endpoint (optional)
 exports.health = onRequest((req, res) => {

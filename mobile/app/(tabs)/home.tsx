@@ -94,10 +94,9 @@ export default function Home() {
             <Link href="/reports/myreports" asChild>
               <QuickAction emoji="📄" label="My Reports" />
             </Link>
-            <TouchableOpacity activeOpacity={0.88} style={S.quick}>
-              <Text style={S.emoji}>🔍</Text>
-              <Text style={S.quickLabel}>Browse Public Reports</Text>
-            </TouchableOpacity>
+            <Link href="/public-reports/public-reports" asChild>
+              <QuickAction emoji="🔍" label="Public Reports" />
+            </Link>
           </View>
         </Section>
       </ScrollView>
