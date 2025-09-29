@@ -5,4 +5,7 @@ export default ({ config }) => ({
   extra: {
     API_BASE: process.env.API_BASE || "http://localhost:4000",
   },
+  android: {
+    package: "com.scamhuntph.app",
+  },
 });

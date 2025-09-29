@@ -7,6 +7,7 @@ module.exports = function corsMiddleware(req, res, next) {
     "http://localhost:3000",
     "https://scamhuntph-admin.web.app",
     "https://scamhuntph-admin.firebaseapp.com",
+    "https://scamhuntph-b3485.web.app",
   ]);
 
   const isAllowed = origin && ALLOWED.has(origin);
