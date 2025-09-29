@@ -20,6 +20,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
 import { auth } from "../../src/firebase";
+import ShareMenu from "react-native-share-menu";
+import { useEffect } from "react";
 
 const API_BASE_URL = "https://reports-bcvrqgcc6a-as.a.run.app";
 
@@ -45,6 +47,26 @@ export default function Report(): JSX.Element {
 
   // Clipboard
   const [clipText, setClipText] = useState<string>("");
+
+  useEffect(() => {
+    // Cold start
+    ShareMenu.getSharedText((share: any) => {
+      if (share?.text) {
+        setMessage(share.text);
+      }
+    });
+
+    // New shares while app is running
+    const listener = ShareMenu.addNewShareListener((share: any) => {
+      if (share?.text) {
+        setMessage(share.text);
+      }
+    });
+
+    return () => {
+      listener?.remove?.();
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
