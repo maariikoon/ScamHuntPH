@@ -48,25 +48,6 @@ export default function Report(): JSX.Element {
   // Clipboard
   const [clipText, setClipText] = useState<string>("");
 
-  useEffect(() => {
-    // Cold start
-    ShareMenu.getSharedText((share: any) => {
-      if (share?.text) {
-        setMessage(share.text);
-      }
-    });
-
-    // New shares while app is running
-    const listener = ShareMenu.addNewShareListener((share: any) => {
-      if (share?.text) {
-        setMessage(share.text);
-      }
-    });
-
-    return () => {
-      listener?.remove?.();
-    };
-  }, []);
 
   useFocusEffect(
     useCallback(() => {
