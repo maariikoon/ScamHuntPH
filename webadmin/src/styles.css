@@ -1,17 +1,55 @@
-:root {
-    --radius: 16px;
-  }
-  
-  html, body, #root {
-    height: 100%;
-  }
-  
-  .muted {
-    color: rgba(0,0,0,.55);
-  }
-  
-  .card-shadow {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
-    border-radius: var(--radius);
-  }
-  
+/* ---------- App background ---------- */
+body {
+  background: #f7fafc;
+}
+
+[data-mantine-color-scheme="dark"] body {
+  /* Blue-dark gradient background */
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(29,78,216,.18), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(30,58,138,.22), transparent 60%),
+    linear-gradient(180deg, #0a1224, #060b18 60%, #040813);
+  color: rgba(255,255,255,.92);
+}
+
+/* ---------- Header & navbar glass ---------- */
+.mantine-AppShell-header,
+.mantine-AppShell-navbar {
+  transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+[data-mantine-color-scheme="dark"] .mantine-AppShell-header,
+[data-mantine-color-scheme="dark"] .mantine-AppShell-navbar {
+  background: rgba(10, 18, 36, .55);       /* deep blue glass */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(96, 165, 250, .14);
+  box-shadow: 0 10px 28px rgba(2,6,23,.65);
+}
+
+/* Optional: subtle light header tint */
+:not([data-mantine-color-scheme="dark"]) .mantine-AppShell-header {
+  background: rgba(255,255,255,.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(30,64,175,.12);
+}
+
+/* ---------- Panels (extra polish on top of theme styles) ---------- */
+.glass-card {
+  border-radius: 18px;
+}
+[data-mantine-color-scheme="dark"] .glass-card {
+  background: linear-gradient(180deg, rgba(29,78,216,.22), rgba(2,6,23,.24)) !important; /* blue-700 -> slate-950 */
+  border-color: rgba(96,165,250,.2) !important; /* blue-400 border tint */
+}
+:not([data-mantine-color-scheme="dark"]) .glass-card {
+  background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(255,255,255,.62)) !important;
+  border-color: rgba(30,64,175,.14) !important; /* blue-800 tint */
+}
+
+/* ---------- Buttons (keep brand blue, extra softness) ---------- */
+.mantine-Button-root { border-radius: 9999px; }
+[data-mantine-color-scheme="dark"] .mantine-Button-root.mantine-Button-filled {
+  box-shadow: 0 6px 20px rgba(37, 99, 235, .35);
+}
