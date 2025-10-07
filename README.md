@@ -42,3 +42,8 @@
   - #### ScamhuntPH web admin - White Screen:
     Check this doc: https://docs.google.com/document/d/1syI7KKRt4iEg4IQkI-ZPmxlnwBGDVKGv71fDUT1tmI4/edit?usp=sharing
 
+
+## WebAdmin Deployment:
+  - #### ScamhuntPH web admin - Deployment:
+    Check this doc: https://docs.google.com/document/d/1h-vwe-UXwpH-b499EOl7RNbF7UWZMwUDCkvk-kZs7bM/edit?usp=sharing
+
