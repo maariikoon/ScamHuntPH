@@ -100,11 +100,11 @@ export default function ReportDetail() {
   const confirmAndUpdate = (status: 'verified' | 'declined') => {
     const nextCategory = newCategory || report?.category || 'other';
     const confirmColor = status === 'verified' ? 'green' : 'red';
-    const confirmLabel = status === 'verified' ? 'Approve' : 'Deny';
+    const confirmLabel = status === 'verified' ? 'Approve' : 'Decline';
 
     modals.openConfirmModal({
       centered: true,
-      title: status === 'verified' ? 'Approve this report?' : 'Deny this report?',
+      title: status === 'verified' ? 'Approve this report?' : 'Decline this report?',
       labels: { confirm: confirmLabel, cancel: 'Cancel' },
       confirmProps: { color: confirmColor, loading: submitting },
       children: (
@@ -345,7 +345,7 @@ export default function ReportDetail() {
           color="red"
           variant="light"
         >
-          Deny
+          Decline
         </Button>
       </Group>
     </Stack>
