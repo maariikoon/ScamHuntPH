@@ -17,8 +17,11 @@ const PAGE_SIZE = 5;
 type ReportRow = {
   id: string;
   createdAt: string | number | null;
+  updatedAt?: string | number | null;
   status?: "pending" | "verified" | "declined" | string;
   sender?: string;
+  decisionType?: "auto" | "manual" | null;
+  nlpScore?: number;
 };
 
 async function getIdToken(): Promise<string> {
@@ -36,7 +39,6 @@ function toDate(v: string | number | null): Date | null {
 
 const fmt = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short" });
 
-/** ---------- Safe date helpers ---------- */
 function coerceDate(x: Date | string | number | null | undefined): Date | null {
   if (!x) return null;
   const d = x instanceof Date ? x : new Date(x);
@@ -50,7 +52,6 @@ function endOfDay(x: Date | string | number | null | undefined): Date | null {
   const d = coerceDate(x); if (!d) return null;
   const copy = new Date(d.getTime()); copy.setHours(23, 59, 59, 999); return copy;
 }
-/** -------------------------------------- */
 
 export default function Reports() {
   const navigate = useNavigate();
@@ -66,10 +67,12 @@ export default function Reports() {
   const [dateRange, setDateRange] = React.useState<[Date | null, Date | null]>([null, null]);
   const [senderDebounced] = useDebouncedValue(sender, 300);
 
-  // pagination
-  const [page, setPage] = React.useState<number>(1);
+  // pagination per section
+  const [pagePending, setPagePending] = React.useState<number>(1);
+  const [pageVerified, setPageVerified] = React.useState<number>(1);
+  const [pageDeclined, setPageDeclined] = React.useState<number>(1);
 
-  // Load reports (passes filters to API; still filters client-side as fallback)
+  // Load reports
   const load = React.useCallback(async () => {
     try {
       setLoading(true);
@@ -79,13 +82,11 @@ export default function Reports() {
       if (status) params.append("status", status);
       if (senderDebounced.trim()) params.append("sender", senderDebounced.trim());
 
-      // ✅ Coerce before calling toISOString()
       const fromDate = coerceDate(dateRange[0]);
       const toDateVal = coerceDate(dateRange[1]);
       if (fromDate) params.append("from", fromDate.toISOString());
       if (toDateVal) params.append("to", toDateVal.toISOString());
 
-      // backend limit high; client paginates to 5/page
       params.append("limit", "200");
 
       const token = await getIdToken();
@@ -106,7 +107,7 @@ export default function Reports() {
 
   React.useEffect(() => { load(); }, [load]);
 
-  // client-side fallback filtering
+  // client-side fallback filtering (global)
   const filtered = React.useMemo(() => {
     const [from, to] = dateRange;
     const fromBound = startOfDay(from);
@@ -123,28 +124,74 @@ export default function Reports() {
       const d = coerceDate(r.createdAt);
       if (fromBound && d && d < fromBound) return false;
       if (toBound && d && d > toBound) return false;
+
       return true;
     });
   }, [rows, status, senderDebounced, dateRange]);
 
-  // reset page on changes
-  React.useEffect(() => { setPage(1); }, [status, senderDebounced, dateRange, rows.length]);
+  // Sections
+  const pendingList = React.useMemo(
+    () => filtered.filter((r) => (r.status || "").toLowerCase() === "pending"),
+    [filtered]
+  );
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const start = (page - 1) * PAGE_SIZE;
-  const visible = filtered.slice(start, start + PAGE_SIZE);
+  // ✅ Verified = ALL verified (system OR admin)
+  const verifiedList = React.useMemo(
+    () => filtered.filter((r) => (r.status || "").toLowerCase() === "verified"),
+    [filtered]
+  );
+
+  const declinedList = React.useMemo(
+    () => filtered.filter((r) => (r.status || "").toLowerCase() === "declined"),
+    [filtered]
+  );
+
+  // Reset paginations when filters/data change
+  React.useEffect(() => { setPagePending(1); }, [status, senderDebounced, dateRange, pendingList.length]);
+  React.useEffect(() => { setPageVerified(1); }, [status, senderDebounced, dateRange, verifiedList.length]);
+  React.useEffect(() => { setPageDeclined(1); }, [status, senderDebounced, dateRange, declinedList.length]);
+
+  const pageCountPending = Math.max(1, Math.ceil(pendingList.length / PAGE_SIZE));
+  const pageCountVerified = Math.max(1, Math.ceil(verifiedList.length / PAGE_SIZE));
+  const pageCountDeclined = Math.max(1, Math.ceil(declinedList.length / PAGE_SIZE));
+
+  const visiblePending = pendingList.slice((pagePending - 1) * PAGE_SIZE, (pagePending) * PAGE_SIZE);
+  const visibleVerified = verifiedList.slice((pageVerified - 1) * PAGE_SIZE, (pageVerified) * PAGE_SIZE);
+  const visibleDeclined = declinedList.slice((pageDeclined - 1) * PAGE_SIZE, (pageDeclined) * PAGE_SIZE);
 
   const statusBadge = (s?: string) => {
-    const map: Record<string, string> = { pending: "yellow", verified: "green", declined: "red", review: "blue", new: "gray" };
-    const color = map[s || ""] || "gray";
+    const map: Record<string, string> = {
+      pending: "yellow",
+      verified: "green",
+      declined: "red",
+      review: "blue",
+      new: "gray",
+    };
+    const color = map[(s || "").toLowerCase()] || "gray";
     const label = (s || "unknown").toUpperCase();
     return <Badge color={color} variant="light">{label}</Badge>;
   };
 
+  const renderRow = (r: ReportRow) => {
+    const d = toDate(r.createdAt);
+    return (
+      <Table.Tr
+        key={r.id}
+        style={{ cursor: "pointer" }}
+        onClick={() => navigate({ to: `/admin/reports/${r.id}` })}
+      >
+        <Table.Td>{r.id.slice(0, 8)}…</Table.Td>
+        <Table.Td>{r.sender || "—"}</Table.Td>
+        <Table.Td>{d ? fmt.format(d) : "—"}</Table.Td>
+        <Table.Td>{statusBadge(r.status)}</Table.Td>
+      </Table.Tr>
+    );
+  };
+
   return (
     <>
-      <Title order={3} mt="md">Recent Scam Reports</Title>
-      <Text c="dimmed" mb="md">Review the most recent submissions and take action.</Text>
+      <Title order={3} mt="md">Scam Reports</Title>
+      <Text c="dimmed" mb="md">Organize by manual review and auto-verified results.</Text>
 
       {/* Filters */}
       <Paper withBorder p="md" radius="lg" mb="md">
@@ -173,18 +220,18 @@ export default function Reports() {
               maw={300}
             />
 
-<DatePickerInput
-  type="range"
-  label="Date range"
-  placeholder="Pick dates"
-  value={dateRange}
-  onChange={(v) =>
-    setDateRange((Array.isArray(v) ? v : [v, v]) as [Date | null, Date | null])
-  }
-  maw={320}
-  allowSingleDateInRange
-  clearable
-/>
+            <DatePickerInput
+              type="range"
+              label="Date range"
+              placeholder="Pick dates"
+              value={dateRange}
+              onChange={(v) =>
+                setDateRange((Array.isArray(v) ? v : [v, v]) as [Date | null, Date | null])
+              }
+              maw={320}
+              allowSingleDateInRange
+              clearable
+            />
 
             <Group gap="xs" mt="lg">
               <Button variant="light" leftSection={<IconRefresh size={16} />} onClick={load} disabled={loading}>
@@ -195,53 +242,129 @@ export default function Reports() {
           </Group>
 
           <Divider />
-          <Text size="sm" c="dimmed">
-            Showing <b>{filtered.length === 0 ? 0 : `${start + 1}-${Math.min(start + PAGE_SIZE, filtered.length)}`}</b> of{" "}
-            <b>{filtered.length}</b> {filtered.length === 1 ? "result" : "results"}
-          </Text>
+          <Group gap="lg" wrap="wrap">
+            <Text size="sm" c="dimmed">
+              Total filtered: <b>{filtered.length}</b>
+            </Text>
+            <Badge color="yellow" variant="light">Pending: {pendingList.length}</Badge>
+            <Badge color="green" variant="light">Verified: {verifiedList.length}</Badge>
+            <Badge color="red" variant="light">Declined: {declinedList.length}</Badge>
+          </Group>
         </Stack>
       </Paper>
 
       {error && <Alert color="red" variant="light" title="Failed to load" mb="md">{error}</Alert>}
 
-      {/* Table */}
-      <div style={{ overflowX: "auto" }}>
-        <Table striped highlightOnHover withTableBorder withColumnBorders>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Report ID</Table.Th>
-              <Table.Th>Sender ID</Table.Th>
-              <Table.Th>Created</Table.Th>
-              <Table.Th>Status</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {visible.map((r) => {
-              const d = toDate(r.createdAt);
-              return (
-                <Table.Tr key={r.id} style={{ cursor: "pointer" }} onClick={() => navigate({ to: `/admin/reports/${r.id}` })}>
-                  <Table.Td>{r.id.slice(0, 8)}…</Table.Td>
-                  <Table.Td>{r.sender || "—"}</Table.Td>
-                  <Table.Td>{d ? fmt.format(d) : "—"}</Table.Td>
-                  <Table.Td>{statusBadge(r.status)}</Table.Td>
-                </Table.Tr>
-              );
-            })}
-            {!loading && filtered.length === 0 && (
-              <Table.Tr>
-                <Table.Td colSpan={4} style={{ textAlign: "center", color: "#667085" }}>
-                  No reports found.
-                </Table.Td>
-              </Table.Tr>
-            )}
-          </Table.Tbody>
-        </Table>
-      </div>
+      {/* BOX 1: Manual Review (Pending) */}
+      <Paper withBorder p="md" radius="lg" mb="lg">
+        <Group justify="space-between" mb="sm">
+          <Title order={4}>Manual Review (Pending)</Title>
+          <Text size="sm" c="dimmed">
+            Showing <b>{pendingList.length === 0 ? 0 : `${(pagePending - 1) * PAGE_SIZE + 1}-${Math.min(pagePending * PAGE_SIZE, pendingList.length)}`}</b> of <b>{pendingList.length}</b>
+          </Text>
+        </Group>
 
-      {/* Pagination */}
-      <Group justify="center" mt="md">
-        <Pagination total={pageCount} value={page} onChange={setPage} size="sm" />
-      </Group>
+        <div style={{ overflowX: "auto" }}>
+          <Table striped highlightOnHover withTableBorder withColumnBorders>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Report ID</Table.Th>
+                <Table.Th>Sender ID</Table.Th>
+                <Table.Th>Created</Table.Th>
+                <Table.Th>Status</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {visiblePending.map(renderRow)}
+              {!loading && pendingList.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={4} style={{ textAlign: "center", color: "#667085" }}>
+                    No pending reports.
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </div>
+
+        <Group justify="center" mt="md">
+          <Pagination total={pageCountPending} value={pagePending} onChange={setPagePending} size="sm" />
+        </Group>
+      </Paper>
+
+      {/* BOX 2: Verified */}
+      <Paper withBorder p="md" radius="lg" mb="lg">
+        <Group justify="space-between" mb="sm">
+          <Title order={4}>Verified</Title>
+          <Text size="sm" c="dimmed">
+            Showing <b>{verifiedList.length === 0 ? 0 : `${(pageVerified - 1) * PAGE_SIZE + 1}-${Math.min(pageVerified * PAGE_SIZE, verifiedList.length)}`}</b> of <b>{verifiedList.length}</b>
+          </Text>
+        </Group>
+
+        <div style={{ overflowX: "auto" }}>
+          <Table striped highlightOnHover withTableBorder withColumnBorders>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Report ID</Table.Th>
+                <Table.Th>Sender ID</Table.Th>
+                <Table.Th>Created</Table.Th>
+                <Table.Th>Status</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {visibleVerified.map(renderRow)}
+              {!loading && verifiedList.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={4} style={{ textAlign: "center", color: "#667085" }}>
+                    No verified reports.
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </div>
+
+        <Group justify="center" mt="md">
+          <Pagination total={pageCountVerified} value={pageVerified} onChange={setPageVerified} size="sm" />
+        </Group>
+      </Paper>
+
+      {/* BOX 3: Declined */}
+      <Paper withBorder p="md" radius="lg">
+        <Group justify="space-between" mb="sm">
+          <Title order={4}>Declined</Title>
+          <Text size="sm" c="dimmed">
+            Showing <b>{declinedList.length === 0 ? 0 : `${(pageDeclined - 1) * PAGE_SIZE + 1}-${Math.min(pageDeclined * PAGE_SIZE, declinedList.length)}`}</b> of <b>{declinedList.length}</b>
+          </Text>
+        </Group>
+
+        <div style={{ overflowX: "auto" }}>
+          <Table striped highlightOnHover withTableBorder withColumnBorders>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Report ID</Table.Th>
+                <Table.Th>Sender ID</Table.Th>
+                <Table.Th>Created</Table.Th>
+                <Table.Th>Status</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {visibleDeclined.map(renderRow)}
+              {!loading && declinedList.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={4} style={{ textAlign: "center", color: "#667085" }}>
+                    No declined reports.
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </div>
+
+        <Group justify="center" mt="md">
+          <Pagination total={pageCountDeclined} value={pageDeclined} onChange={setPageDeclined} size="sm" />
+        </Group>
+      </Paper>
     </>
   );
 }
