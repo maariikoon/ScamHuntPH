@@ -5,6 +5,21 @@ import * as logger from "firebase-functions/logger";
 admin.initializeApp();
 const db = admin.firestore();
 
+/** Normalize SMS text for more stable regex (Tagalog/English, smart quotes, spacing) */
+function normalizeMessage(msg: string): string {
+  return msg
+    .normalize("NFKC")
+    .replace(/[‘’‚‛]/g, "'")
+    .replace(/[“”„‟]/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function num(v: any, fallback: number): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 /**
  * 🤖 Auto-verifies new reports with regex-based scoring.
  * Decision policy:
@@ -28,11 +43,12 @@ export const onReportCreate = onDocumentCreated(
     const data = snap.data() as any;
 
     // 🚧 require message text
-    const message: string | undefined = data?.message;
-    if (!message || typeof message !== "string") {
+    const rawMessage: string | undefined = data?.message;
+    if (!rawMessage || typeof rawMessage !== "string") {
       logger.warn("Skipping: no message");
       return;
     }
+    const message = normalizeMessage(rawMessage);
 
     // 🚧 idempotency: skip if already auto-processed
     if (data?.decision?.type === "auto") {
@@ -51,9 +67,13 @@ export const onReportCreate = onDocumentCreated(
       activeVersion,
       rules = [],
       autoApproveThreshold = 0.85,
-      autoPendingThreshold = 0.40,   // ✅ new: middle band marker (for logging/reasoning)
-      autoDeclineThreshold = 0.10,   // ✅ stricter: decline only near-zero (spam)
+      autoPendingThreshold = 0.40,
+      autoDeclineThreshold = 0.10,
     } = cfg.data() as any;
+
+    const approveT = num(autoApproveThreshold, 0.85);
+    const pendingT = num(autoPendingThreshold, 0.40);
+    const declineT = num(autoDeclineThreshold, 0.10);
 
     // 2) Score with regex rules (fail-soft on bad regex)
     let score = 0;
@@ -63,9 +83,10 @@ export const onReportCreate = onDocumentCreated(
     for (const r of rules as Array<any>) {
       try {
         if (!r?.regex) continue;
-        const re = new RegExp(String(r.regex), "i");
+        // 👇 Unicode + case-insensitive for Tagalog/English and symbols like ₱
+        const re = new RegExp(String(r.regex), "iu");
         if (re.test(message)) {
-          score += Number(r.weight) || 0;
+          score += num(r.weight, 0);
           if (r.id) matchedRules.push(String(r.id));
           if (r.explanation) explanations.push(String(r.explanation));
         }
@@ -81,10 +102,6 @@ export const onReportCreate = onDocumentCreated(
     // 3) Decide
     type Result = "verified" | "declined" | "pending";
 
-    const approveT = Number(autoApproveThreshold ?? 0.85);
-    const pendingT = Number(autoPendingThreshold ?? 0.40);
-    const declineT = Number(autoDeclineThreshold ?? 0.10);
-
     let result: Result = "pending";
     let reason = "Needs manual review (medium/low confidence)";
 
@@ -95,7 +112,6 @@ export const onReportCreate = onDocumentCreated(
       result = "declined"; // treat as spam
       reason = `Auto-declined as spam (score ${score.toFixed(2)} < ${declineT})`;
     } else {
-      // pending band; optional: refine the message using pendingT for clarity
       reason =
         score >= pendingT
           ? `Pending (score ${score.toFixed(2)} between ${pendingT}–${approveT})`
@@ -127,7 +143,9 @@ export const onReportCreate = onDocumentCreated(
     logger.info(
       `✅ onReportCreate: ${event.params.reportId} → ${result} (score=${score.toFixed(
         2
-      )}, thresholds: approve=${approveT}, pending=${pendingT}, decline=${declineT})`
+      )}, thresholds: approve=${approveT}, pending=${pendingT}, decline=${declineT}, matched=[${matchedRules.join(
+        ", "
+      )}])`
     );
   }
 );
