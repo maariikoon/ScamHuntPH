@@ -31,6 +31,7 @@
       </intent-filter>
     </activity>
 
+    
     <activity
         android:name="com.meedan.ShareActivity"
         android:exported="true"
@@ -43,6 +44,7 @@
         </intent-filter>
     </activity>
 
-
+    
   </application>
+
 </manifest>
