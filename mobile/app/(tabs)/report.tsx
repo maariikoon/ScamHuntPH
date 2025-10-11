@@ -20,7 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
 import { auth } from "../../src/firebase";
-import ShareMenu from "react-native-share-menu";
+//import ShareMenu from "react-native-share-menu";
 import { useEffect } from "react";
 
 const API_BASE_URL = "https://reports-bcvrqgcc6a-as.a.run.app";
@@ -82,6 +82,22 @@ export default function Report(): JSX.Element {
       setImage(result.assets[0].uri);
     }
   };
+
+    // ✅ Only read global.sharedText once — remove all ShareMenu calls
+  useEffect(() => {
+    if (global.sharedText) {
+      const txt = global.sharedText.trim();   // ✅ take the text from the share
+      setMessage(txt);                        // ✅ put it in your text box
+      global.sharedText = null;               // 🧹 clear it after using
+
+      // 👇 Optional: Just for user feedback
+      setTimeout(() => {
+        Alert.alert("📩 Message received", "Scam message loaded from share.");
+      }, 500);
+    }
+  }, []);
+
+
 
   // API helpers
   async function createReport(token: string, msg: string, cat: string, reg: string): Promise<string> {

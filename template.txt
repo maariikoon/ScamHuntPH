@@ -1,0 +1,30 @@
+    <activity
+        android:name=".MainActivity"
+        android:exported="true"
+        android:launchMode="singleTask"
+        android:taskAffinity="${applicationId}"
+        android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode"
+        android:windowSoftInputMode="adjustResize"
+        android:theme="@style/Theme.App.SplashScreen"
+        android:screenOrientation="portrait">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+
+
+    <activity
+        android:name="com.meedan.ShareActivity"
+        android:exported="true"
+        android:launchMode="singleTop"
+        android:taskAffinity=""
+        tools:replace="android:launchMode,android:taskAffinity"
+        android:excludeFromRecents="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+      <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="text/plain" />
+      </intent-filter>
+    </activity>
