@@ -1,32 +1,34 @@
 diff --git a/node_modules/react-native-worklets/android/build.gradle b/node_modules/react-native-worklets/android/build.gradle
-index 021f5bc..7cdc675 100644
+index 021f5bc..ca88bc0 100644
 --- a/node_modules/react-native-worklets/android/build.gradle
 +++ b/node_modules/react-native-worklets/android/build.gradle
 @@ -138,6 +138,7 @@ buildscript {
          classpath "com.android.tools.build:gradle:8.2.1"
          classpath "de.undercouch:gradle-download-task:5.6.0"
          classpath "com.diffplug.spotless:spotless-plugin-gradle:6.25.0"
-+        ext.kotlin_version = "2.0.21"
++        ext.kotlin_version = "1.9.25"
      }
  }
  
-@@ -151,7 +152,7 @@ apply plugin: "de.undercouch.download"
+@@ -150,8 +151,9 @@ apply plugin: "maven-publish"
+ apply plugin: "de.undercouch.download"
  
  
++
  android {
 -    compileSdkVersion safeExtGet("compileSdkVersion", 34)
 +    compileSdkVersion safeExtGet("compileSdkVersion", 36)
  
      namespace "com.swmansion.worklets"
  
-@@ -175,8 +176,8 @@ android {
+@@ -175,8 +177,8 @@ android {
      }
  
      defaultConfig {
 -        minSdkVersion safeExtGet("minSdkVersion", 23)
 -        targetSdkVersion safeExtGet("targetSdkVersion", 34)
-+        targetSdkVersion safeExtGet("targetSdkVersion", 36)
 +        minSdkVersion safeExtGet("minSdkVersion", 24)
++        targetSdkVersion safeExtGet("targetSdkVersion", 36)
          versionCode 1
          versionName WORKLETS_VERSION
  
