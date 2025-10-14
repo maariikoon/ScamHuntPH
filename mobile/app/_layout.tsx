@@ -3,7 +3,8 @@ import { Stack, usePathname, useRouter } from "expo-router";
 import "../i18n"; // side-effect import (resources, detectors, etc.)
 import { initI18n } from "../i18n";
 import { NotificationsProvider } from "../src/context/NotificationsContext";
-import ShareMenu from "react-native-share-menu";
+//import ShareMenu from "react-native-share-menu";
+import { getInitialShare, addShareListener } from "../src/utils/ShareMenuSafe";
 
 declare global {
   var sharedText: string | null | undefined;
@@ -26,17 +27,15 @@ export default function RootLayout() {
 
     async function handleShare(share?: any) {
       console.log("⚡ handleShare called with:", share);
-      console.log("🧠 Raw share object:", JSON.stringify(share, null, 2));
       if (!mounted) return;
 
-      // ✅ FIX: Safely extract message regardless of structure
       const txt =
         typeof share === "string"
           ? share.trim()
           : typeof share?.text === "string"
           ? share.text.trim()
           : share?.text?.data?.trim?.() ||
-            share?.data?.trim?.() || // 👈 added this line
+            share?.data?.trim?.() ||
             "";
 
       if (!txt) {
@@ -54,7 +53,6 @@ export default function RootLayout() {
       global.sharedText = txt;
       console.log("✅ Set global.sharedText:", txt);
 
-      // ⚡ Small delay to ensure React bridge is ready before navigation
       setTimeout(() => {
         if (pathname !== "/report") {
           console.log("➡️ Navigating to /report");
@@ -67,24 +65,21 @@ export default function RootLayout() {
       }, 500);
     }
 
-    // 1️⃣ Cold-start share check
-    setTimeout(() => {
-      ShareMenu.getSharedText((text) => {
-        console.log("📩 getSharedText returned:", text);
-        // 👇 Wrap in same shape so handleShare works consistently
-        handleShare(text ? { text } : undefined);
-      });
+    // ✅ Cold-start share check using safe wrapper
+    setTimeout(async () => {
+      const data = await getInitialShare();
+      console.log("📩 getInitialShare returned:", data);
+      if (data) handleShare(data);
     }, 800);
 
-    // 2️⃣ Live share listener
-    const sub = ShareMenu.addNewShareListener((share) => {
-      console.log("📥 addNewShareListener fired:", share);
+    // ✅ Live share listener using safe wrapper
+    addShareListener((share) => {
+      console.log("📥 addShareListener fired:", share);
       handleShare(share);
     });
 
     return () => {
       mounted = false;
-      sub?.remove?.();
       console.log("🧹 ShareMenu listener cleanup");
     };
   }, [pathname, router]);
