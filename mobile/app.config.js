@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import "dotenv/config";
 
 export default ({ config }) => ({
   ...config,
@@ -12,25 +12,14 @@ export default ({ config }) => ({
     fallbackToCacheTimeout: 0,
   },
   assetBundlePatterns: ["**/*"],
+
   ios: {
     supportsTablet: true,
   },
+
   android: {
     package: "com.scamhuntph.app",
 
-    // ✅ put intentFilters INSIDE the android object
-    intentFilters: [
-      {
-        action: "android.intent.action.SEND",
-        category: ["android.intent.category.DEFAULT"],
-        mimeType: "text/*",
-      },
-      {
-        action: "android.intent.action.SEND_MULTIPLE",
-        category: ["android.intent.category.DEFAULT"],
-        mimeType: "image/*",
-      },
-    ],
   },
 
   extra: {
@@ -53,6 +42,8 @@ export default ({ config }) => ({
         },
       },
     ],
+
+    // ✅ keep your custom plugin active
+    "./plugins/share-activity-plugin",
   ],
-  
 });
