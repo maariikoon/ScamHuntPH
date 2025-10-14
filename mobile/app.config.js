@@ -9,8 +9,12 @@ export default ({ config }) => ({
   userInterfaceStyle: "light",
 
   updates: {
-    fallbackToCacheTimeout: 0,
+    url: "https://u.expo.dev/2c54b610-fac6-4fc3-b16d-e6ab95c1f06f",
   },
+  runtimeVersion: {
+    policy: "appVersion",
+  },
+  
   assetBundlePatterns: ["**/*"],
 
   ios: {
