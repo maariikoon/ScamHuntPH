@@ -10,7 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import RenderHTML from "react-native-render-html";
+import RenderHTML, { MixedStyleRecord, RenderersProps } from "react-native-render-html";
 
 const API_BASE_URL = "https://lessons-bcvrqgcc6a-as.a.run.app";
 
@@ -70,6 +70,11 @@ export default function LessonDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const { width } = useWindowDimensions();
 
+  // Inner card width: screen width - horizontal padding.
+  // Hard-cap at 360 so large infographics can’t overflow mid-size phones.
+  // If you want full width on larger phones, change to: const contentW = width - 32;
+  const contentW = Math.min(width - 32, 360);
+
   useEffect(() => {
     async function fetchLesson() {
       if (!learnId) {
@@ -96,6 +101,69 @@ export default function LessonDetailScreen() {
 
   const cleaned = useMemo(() => cleanHTML(lesson?.content || ""), [lesson?.content]);
   const updated = lesson?.updatedAt ? fmtDate(lesson.updatedAt) : fmtDate(lesson?.createdAt);
+
+  // Typed tag styles (RN requires numeric sizes, not '%')
+  const tagStyles: MixedStyleRecord = useMemo(
+    () => ({
+      h1: { fontSize: 24, fontWeight: "800", marginBottom: 12, color: C.text },
+      h2: { fontSize: 20, fontWeight: "800", marginTop: 18, marginBottom: 8, color: C.text },
+      h3: { fontSize: 18, fontWeight: "800", marginTop: 16, marginBottom: 6, color: C.text },
+      p: { fontSize: 16, lineHeight: 24, marginBottom: 12, color: C.text },
+      ul: { marginBottom: 12, paddingLeft: 20 },
+      ol: { marginBottom: 12, paddingLeft: 20 },
+      li: { fontSize: 16, lineHeight: 24, marginBottom: 6, color: C.text },
+      a: { color: C.primary, textDecorationLine: "underline", fontWeight: "700" },
+      blockquote: {
+        borderLeftWidth: 4,
+        borderLeftColor: C.primary,
+        backgroundColor: "#eef2ff",
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        marginVertical: 10,
+        color: C.text,
+      },
+      code: {
+        fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
+        fontSize: 14,
+        backgroundColor: "#e2e8f0",
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+      },
+      pre: {
+        fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
+        fontSize: 14,
+        backgroundColor: "#e2e8f0",
+        padding: 10,
+        borderRadius: 10,
+        overflow: "hidden",
+      },
+      // 🔑 make images fit the card width
+      img: {
+        width: contentW,
+        maxWidth: contentW,
+        borderRadius: 10,
+      },
+      hr: {
+        borderBottomColor: C.line,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        marginVertical: 14,
+      },
+      strong: { fontWeight: "800" },
+      b: { fontWeight: "800" },
+      em: { fontStyle: "italic" },
+    }),
+    [contentW]
+  );
+
+  // Typed renderers props
+  const rProps: RenderersProps = {
+    img: { enableExperimentalPercentWidth: true },
+    a: {},
+    ol: {},
+    ul: {},
+  };
 
   if (loading) {
     return (
@@ -145,57 +213,11 @@ export default function LessonDetailScreen() {
         ) : (
           <View style={S.card}>
             <RenderHTML
-              contentWidth={width - 32} // card padding accounted
+              contentWidth={contentW}
               source={{ html: cleaned }}
               baseStyle={{ color: C.text }}
-              tagsStyles={{
-                h1: { fontSize: 24, fontWeight: "800", marginBottom: 12, color: C.text },
-                h2: { fontSize: 20, fontWeight: "800", marginTop: 18, marginBottom: 8, color: C.text },
-                h3: { fontSize: 18, fontWeight: "800", marginTop: 16, marginBottom: 6, color: C.text },
-                p: { fontSize: 16, lineHeight: 24, marginBottom: 12, color: C.text },
-                ul: { marginBottom: 12, paddingLeft: 20 },
-                ol: { marginBottom: 12, paddingLeft: 20 },
-                li: { fontSize: 16, lineHeight: 24, marginBottom: 6, color: C.text },
-                a: { color: C.primary, textDecorationLine: "underline", fontWeight: "700" },
-                blockquote: {
-                  borderLeftWidth: 4,
-                  borderLeftColor: C.primary,
-                  backgroundColor: "#eef2ff",
-                  paddingVertical: 8,
-                  paddingHorizontal: 12,
-                  borderRadius: 8,
-                  marginVertical: 10,
-                  color: C.text,
-                },
-                code: {
-                  fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
-                  fontSize: 14,
-                  backgroundColor: "#e2e8f0",
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  borderRadius: 6,
-                },
-                pre: {
-                  fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
-                  fontSize: 14,
-                  backgroundColor: "#e2e8f0",
-                  padding: 10,
-                  borderRadius: 10,
-                  overflow: "hidden",
-                },
-                img: {
-                  maxWidth: "100%",
-                  borderRadius: 10,
-                },
-                hr: {
-                  borderBottomColor: C.line,
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                  marginVertical: 14,
-                },
-                strong: { fontWeight: "800" },
-                b: { fontWeight: "800" },
-                em: { fontStyle: "italic" },
-              }}
+              tagsStyles={tagStyles}
+              renderersProps={rProps}
             />
           </View>
         )}

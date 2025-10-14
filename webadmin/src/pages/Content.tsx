@@ -167,12 +167,15 @@ export default function ContentPage() {
     nav({ to: "/admin/content/$lessonId", params: { lessonId: id } });
   };
 
+  // ---- Shared sizing to match Analytics ----
+  const BASE_FONT_REM = rem(14); // adjust to 15/16 if your Analytics uses a different base
+
   return (
-    <Stack gap="lg" p="md">
+    <Stack gap="lg" p="md" style={{ fontSize: BASE_FONT_REM }}>
       {/* Header row */}
       <Group justify="space-between" align="center">
-        <Text fw={700} size="xl">Lessons</Text>
-        <Button leftSection={<IconPlus size={18} />} onClick={() => setModalOpen(true)}>
+        <Text fw={700} size="lg">Lessons</Text>
+        <Button size="sm" leftSection={<IconPlus size={18} />} onClick={() => setModalOpen(true)}>
           Add Lesson
         </Button>
       </Group>
@@ -180,6 +183,7 @@ export default function ContentPage() {
       {/* Filters */}
       <Group wrap="wrap" gap="md">
         <Select
+          size="sm"
           label="Status"
           value={status}
           onChange={(v: string | null) => setStatus((v ?? "all") as typeof status)}
@@ -189,32 +193,41 @@ export default function ContentPage() {
             { value: "saved", label: "Saved" },
           ]}
           w={200}
+          styles={{ label: { fontSize: BASE_FONT_REM }, input: { fontSize: BASE_FONT_REM } }}
         />
         <Select
+          size="sm"
           label="Filter by category"
           placeholder="Select category"
           data={categories}
           value={selectedCategory}
           onChange={setSelectedCategory}
           w={260}
+          styles={{ label: { fontSize: BASE_FONT_REM }, input: { fontSize: BASE_FONT_REM } }}
         />
       </Group>
 
       {/* Table list */}
-      <Table striped highlightOnHover withTableBorder withColumnBorders>
+      <Table
+        striped
+        highlightOnHover
+        withTableBorder
+        withColumnBorders
+        verticalSpacing="sm"
+        horizontalSpacing="md"
+      >
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>Title</Table.Th>
-            <Table.Th>Category</Table.Th>
-            <Table.Th>Status</Table.Th>
-            <Table.Th style={{ width: rem(220) }}>Actions</Table.Th>
+            <Table.Th style={{ fontSize: BASE_FONT_REM }}>Title</Table.Th>
+            <Table.Th style={{ fontSize: BASE_FONT_REM }}>Category</Table.Th>
+            <Table.Th style={{ fontSize: BASE_FONT_REM }}>Status</Table.Th>
+            <Table.Th style={{ width: rem(220), fontSize: BASE_FONT_REM }}>Actions</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {paged.map((item) => (
-            <Table.Tr key={item.id}>
+            <Table.Tr key={item.id} style={{ fontSize: BASE_FONT_REM }}>
               <Table.Td>
-                {/* Declarative link to detail */}
                 <Link to="/admin/content/$lessonId" params={{ lessonId: item.id }}>
                   {item.title}
                 </Link>
@@ -223,6 +236,7 @@ export default function ContentPage() {
               <Table.Td>
                 {item.published ? (
                   <Badge
+                    size="sm"
                     color="green"
                     variant="light"
                     leftSection={<IconCircleCheck size={14} />}
@@ -231,6 +245,7 @@ export default function ContentPage() {
                   </Badge>
                 ) : (
                   <Badge
+                    size="sm"
                     color="gray"
                     variant="light"
                     leftSection={<IconCircleDashed size={14} />}
@@ -241,8 +256,8 @@ export default function ContentPage() {
               </Table.Td>
               <Table.Td>
                 <Group gap="xs">
-                  {/* Use handler to avoid polymorphic runtime issues */}
                   <ActionIcon
+                    size="sm"
                     variant="subtle"
                     title="Open"
                     onClick={() => openDetail(item.id)}
@@ -251,14 +266,19 @@ export default function ContentPage() {
                   </ActionIcon>
 
                   <ActionIcon
+                    size="sm"
                     variant="subtle"
-                    onClick={() => { setCurrentLesson(item); setDetailOpen(true); }}
+                    onClick={() => {
+                      setCurrentLesson(item);
+                      setDetailOpen(true);
+                    }}
                     title="View Details"
                   >
                     <IconEye size={18} />
                   </ActionIcon>
 
                   <ActionIcon
+                    size="sm"
                     color="red"
                     variant="subtle"
                     onClick={() => handleDelete(item.id)}
@@ -273,7 +293,7 @@ export default function ContentPage() {
 
           {paged.length === 0 && (
             <Table.Tr>
-              <Table.Td colSpan={4} style={{ textAlign: "center" }}>
+              <Table.Td colSpan={4} style={{ textAlign: "center", fontSize: BASE_FONT_REM }}>
                 {loading ? "Loading…" : "No lessons found"}
               </Table.Td>
             </Table.Tr>
@@ -287,14 +307,25 @@ export default function ContentPage() {
           Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
           {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
         </Text>
-        <Pagination total={totalPages} value={page} onChange={setPage} />
+        <Pagination size="sm" total={totalPages} value={page} onChange={setPage} />
       </Group>
 
       {/* Add Lesson Modal */}
-      <Modal opened={modalOpen} onClose={() => setModalOpen(false)} title="Add New Lesson">
+      <Modal
+        opened={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Add New Lesson"
+        size="lg"
+      >
         <Stack>
-          <TextInput label="Title" value={newTitle} onChange={(e) => setNewTitle(e.currentTarget.value)} />
+          <TextInput
+            size="sm"
+            label="Title"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.currentTarget.value)}
+          />
           <Textarea
+            size="sm"
             label="Content (supports HTML)"
             description="You can paste HTML here; it will be rendered safely in the lesson detail page."
             value={newContent}
@@ -302,22 +333,29 @@ export default function ContentPage() {
             minRows={6}
           />
           <Select
+            size="sm"
             label="Category"
             data={categories}
             value={newCategory}
             onChange={(val) => setNewCategory(val || "other")}
           />
           <Group justify="flex-end">
-            <Button onClick={handleAddLesson}>Save</Button>
+            <Button size="sm" onClick={handleAddLesson}>Save</Button>
           </Group>
         </Stack>
       </Modal>
 
       {/* Detail/Edit Modal */}
-      <Modal opened={detailOpen} onClose={() => setDetailOpen(false)} title="Lesson Details">
+      <Modal
+        opened={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        title="Lesson Details"
+        size="lg"
+      >
         {currentLesson && (
           <Stack>
             <TextInput
+              size="sm"
               label="Title"
               value={currentLesson.title}
               onChange={(e) =>
@@ -325,6 +363,7 @@ export default function ContentPage() {
               }
             />
             <Textarea
+              size="sm"
               label="Content (supports HTML)"
               value={currentLesson.content}
               onChange={(e) =>
@@ -333,6 +372,7 @@ export default function ContentPage() {
               minRows={8}
             />
             <Select
+              size="sm"
               label="Category"
               data={categories}
               value={currentLesson.category}
@@ -342,14 +382,15 @@ export default function ContentPage() {
             />
             <Group justify="space-between" mt="md">
               <Group>
-                <Button onClick={handleUpdateLesson}>Save Changes</Button>
+                <Button size="sm" onClick={handleUpdateLesson}>Save Changes</Button>
                 {!currentLesson.published && (
-                  <Button color="green" onClick={handlePublishLesson}>
+                  <Button size="sm" color="green" onClick={handlePublishLesson}>
                     Publish
                   </Button>
                 )}
               </Group>
               <Button
+                size="sm"
                 variant="light"
                 leftSection={<IconExternalLink size={16} />}
                 onClick={() => openDetail(currentLesson.id)}
