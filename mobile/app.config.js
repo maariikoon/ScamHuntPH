@@ -8,13 +8,13 @@ export default ({ config }) => ({
   orientation: "portrait",
   userInterfaceStyle: "light",
 
+  icon: "./assets/images/icon.png", 
+
   updates: {
     url: "https://u.expo.dev/2c54b610-fac6-4fc3-b16d-e6ab95c1f06f",
   },
-  runtimeVersion: {
-    policy: "appVersion",
-  },
-  
+  runtimeVersion: "1.0.0",
+
   assetBundlePatterns: ["**/*"],
 
   ios: {

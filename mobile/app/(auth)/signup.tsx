@@ -48,10 +48,10 @@ export default function Signup() {
   // ✅ Password validation
   const validatePassword = (val: string) => {
     setPassword(val);
-    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,12}$/;
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
     if (!regex.test(val)) {
       setPasswordError(
-        "Password must be 8–12 chars, include upper, lower, number, special char"
+        "Password must be at least 8 characters, include upper, lower, number, special char"
       );
     } else setPasswordError("");
   };
