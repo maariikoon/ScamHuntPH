@@ -30,7 +30,7 @@ export default function Signup() {
 
   // Password rules check
   const rules = [
-    { label: "8–12 characters", valid: password.length >= 8 && password.length <= 12 },
+    { label: "8–12 characters", valid: password.length >= 8},
     { label: "At least one uppercase letter", valid: /[A-Z]/.test(password) },
     { label: "At least one lowercase letter", valid: /[a-z]/.test(password) },
     { label: "At least one number", valid: /\d/.test(password) },
