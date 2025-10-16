@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Text,
   FlatList,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Pressable,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,8 +21,8 @@ const C = {
   bg: "#ffffff",
   text: "#0f172a",
   sub: "#64748b",
-  line: "#e5e7eb",
-  cardBg: "#f8fafc",
+  line: "#e6eaf0",
+  cardBg: "rgba(248, 250, 252, 0.92)",
   primary: "#2563eb",
   primaryDark: "#1e40af",
   okBg: "#dcfce7",
@@ -29,15 +31,20 @@ const C = {
   warnText: "#9a3412",
   errBg: "#fee2e2",
   errText: "#991b1b",
+  blue50: "#eff6ff",
+  blue100: "#dbeafe",
 };
 
 /* -------------- Helpers --------------- */
-function relativeTime(iso?: string) {
-  if (!iso) return "";
+function safeMs(iso?: string) {
+  if (!iso) return 0;
   const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "";
-  const diff = Date.now() - t;
-  const s = Math.max(0, Math.floor(diff / 1000));
+  return Number.isFinite(t) ? t : 0;
+}
+function relativeTime(iso?: string) {
+  const t = safeMs(iso);
+  if (!t) return "";
+  const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
   if (s < 10) return "just now";
   if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
@@ -52,20 +59,32 @@ function relativeTime(iso?: string) {
 function statusMeta(status: string) {
   switch ((status || "").toLowerCase()) {
     case "verified":
-      return { accent: "#22c55e", badgeBg: C.okBg, badgeText: C.okText, icon: "checkmark-circle" as const };
+      return { accent: "#22c55e", chipBg: C.okBg, chipText: C.okText, icon: "checkmark-circle" as const, label: "Verified" };
     case "pending":
-      return { accent: "#f59e0b", badgeBg: C.warnBg, badgeText: C.warnText, icon: "time" as const };
+      return { accent: "#f59e0b", chipBg: C.warnBg, chipText: C.warnText, icon: "time" as const, label: "Pending" };
     case "declined":
     case "denied":
-      return { accent: "#ef4444", badgeBg: C.errBg, badgeText: C.errText, icon: "close-circle" as const };
+      return { accent: "#ef4444", chipBg: C.errBg, chipText: C.errText, icon: "close-circle" as const, label: "Declined" };
     default:
-      return { accent: C.primary, badgeBg: "#e0e7ff", badgeText: C.primaryDark, icon: "information-circle" as const };
+      return { accent: C.primary, chipBg: C.blue100, chipText: C.primaryDark, icon: "information-circle" as const, label: "Info" };
   }
 }
 
+type Report = {
+  id: string;
+  message?: string;
+  category?: string;
+  region?: string;
+  status: "pending" | "verified" | "declined" | string;
+  updatedAt?: string;
+  createdAt?: string;
+  feedback?: string;
+};
+
 export default function UserReport() {
-  const [rawReports, setRawReports] = useState<any[]>([]);
+  const [rawReports, setRawReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(false);
+  const [firstLoad, setFirstLoad] = useState(true);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [filter, setFilter] = useState<"all" | "pending" | "verified" | "declined">("all");
 
@@ -79,15 +98,16 @@ export default function UserReport() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (data.ok && Array.isArray(data.reports)) {
-        setRawReports(data.reports);
+      if (data?.ok && Array.isArray(data.reports)) {
+        setRawReports(data.reports as Report[]);
       } else {
-        console.warn("⚠️ Failed to fetch reports:", data.error);
+        console.warn("⚠️ Failed to fetch reports:", data?.error);
       }
     } catch (err) {
       console.error("❌ Error fetching reports:", err);
     } finally {
       setLoading(false);
+      setFirstLoad(false);
     }
   }, []);
 
@@ -108,20 +128,25 @@ export default function UserReport() {
     if (filter !== "all") list = list.filter((r) => r.status === filter);
     list.sort((a, b) =>
       sortOrder === "newest"
-        ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        ? safeMs(b.createdAt) - safeMs(a.createdAt)
+        : safeMs(a.createdAt) - safeMs(b.createdAt)
     );
     return list;
   }, [rawReports, filter, sortOrder]);
 
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = ({ item }: { item: Report }) => {
     const meta = statusMeta(item.status);
     return (
-      <View style={S.card}>
+      <Pressable style={({ pressed }) => [S.card, pressed && { opacity: 0.97 }]}>
         <View style={[S.cardAccent, { backgroundColor: meta.accent }]} />
-        <Text style={S.message} numberOfLines={3}>
-          {item.message}
-        </Text>
+        <View style={S.cardTop}>
+          <View style={S.iconWrap}>
+            <Ionicons name="document-text-outline" size={18} color={C.primary} />
+          </View>
+          <Text style={S.message} numberOfLines={3}>
+            {item.message || "(no message provided)"}
+          </Text>
+        </View>
 
         <View style={S.metaRow}>
           <Text style={S.pill}>{item.category || "—"}</Text>
@@ -129,36 +154,33 @@ export default function UserReport() {
         </View>
 
         <View style={S.bottomRow}>
-          <View style={[S.badge, { backgroundColor: meta.badgeBg }]}>
-            <Ionicons name={meta.icon} size={14} color={meta.badgeText} />
-            <Text style={[S.badgeText, { color: meta.badgeText }]}>
-              {String(item.status || "").toUpperCase()}
-            </Text>
+          <View style={[S.badge, { backgroundColor: meta.chipBg }]}>
+            <Ionicons name={meta.icon} size={14} color={meta.chipText} />
+            <Text style={[S.badgeText, { color: meta.chipText }]}>{meta.label.toUpperCase()}</Text>
           </View>
 
           <View style={{ alignItems: "flex-end" }}>
-            {item.updatedAt ? (
-              <Text style={S.date}>Updated: {relativeTime(item.updatedAt)}</Text>
-            ) : null}
-            {item.createdAt ? (
-              <Text style={S.date}>Submitted: {relativeTime(item.createdAt)}</Text>
-            ) : null}
+            {!!item.updatedAt && <Text style={S.date}>Updated: {relativeTime(item.updatedAt)}</Text>}
+            {!!item.createdAt && <Text style={S.date}>Submitted: {relativeTime(item.createdAt)}</Text>}
           </View>
         </View>
 
-        {item.feedback ? (
+        {!!item.feedback && (
           <View style={S.feedbackBox}>
             <Text style={S.feedbackLabel}>Admin Feedback</Text>
             <Text style={S.feedbackText}>{item.feedback}</Text>
           </View>
-        ) : null}
-      </View>
+        )}
+      </Pressable>
     );
   };
+
+  const keyExtractor = (item: Report) => item.id;
 
   return (
     <SafeAreaView style={S.safeArea} edges={["top", "left", "right", "bottom"]}>
       <View style={S.container}>
+        {/* Header */}
         <View style={S.headerRow}>
           <Text style={S.heading}>Your Reports</Text>
 
@@ -184,48 +206,77 @@ export default function UserReport() {
         {/* Filter segmented control */}
         <View style={S.filters}>
           {([
-            { key: "all", count: counts.all },
-            { key: "pending", count: counts.pending },
-            { key: "verified", count: counts.verified },
-            { key: "declined", count: counts.declined },
-          ] as const).map(({ key, count }) => {
+            { key: "all", count: counts.all, label: "All" },
+            { key: "pending", count: counts.pending, label: "Pending" },
+            { key: "verified", count: counts.verified, label: "Verified" },
+            { key: "declined", count: counts.declined, label: "Declined" },
+          ] as const).map(({ key, count, label }) => {
             const active = filter === key;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={key}
                 onPress={() => setFilter(key)}
-                style={[S.filterBtn, active && S.filterBtnActive]}
+                android_ripple={{ color: C.blue100 }}
+                style={({ pressed }) => [S.filterBtn, active && S.filterBtnActive, pressed && { opacity: 0.95 }]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
               >
-                <Text style={[S.filterTxt, active && S.filterTxtActive]}>
-                  {key[0].toUpperCase() + key.slice(1)} {count > 0 ? `(${count})` : ""}
-                </Text>
-              </TouchableOpacity>
+                <Text style={[S.filterTxt, active && S.filterTxtActive]}>{label}</Text>
+                <View style={[S.countBadge, active && S.countBadgeActive]}>
+                  <Text style={[S.countBadgeText, active && S.countBadgeTextActive]}>{count}</Text>
+                </View>
+              </Pressable>
             );
           })}
         </View>
 
-        {reports.length === 0 && !loading ? (
+        {/* Content */}
+        {firstLoad ? (
+          <View style={{ gap: 10 }}>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </View>
+        ) : reports.length === 0 && !loading ? (
           <View style={S.emptyWrap}>
-            <Text style={S.emptyIcon}>📭</Text>
+            <View style={S.emptyIcon}>
+              <Ionicons name="document-outline" size={24} color={C.sub} />
+            </View>
             <Text style={S.emptyText}>No reports found.</Text>
           </View>
         ) : (
           <FlatList
             data={reports}
-            keyExtractor={(item) => item.id}
+            keyExtractor={keyExtractor}
             renderItem={renderItem}
             contentContainerStyle={{ paddingBottom: 16 }}
-            refreshControl={
-              <RefreshControl refreshing={loading} onRefresh={fetchReports} />
-            }
+            refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchReports} />}
+            initialNumToRender={8}
+            windowSize={7}
           />
         )}
 
-        {loading && (
+        {loading && !firstLoad && (
           <ActivityIndicator color={C.primary} style={{ position: "absolute", top: 8, right: 12 }} />
         )}
       </View>
     </SafeAreaView>
+  );
+}
+
+/* ---------------- UI bits ---------------- */
+function SkeletonCard() {
+  return (
+    <View style={[S.card, { backgroundColor: C.blue50, borderColor: C.blue100 }]}>
+      <View style={S.cardTop}>
+        <View style={S.iconWrap} />
+        <View style={{ flex: 1, gap: 8 }}>
+          <View style={{ height: 12, width: "70%", borderRadius: 6, backgroundColor: C.blue100 }} />
+          <View style={{ height: 10, width: "45%", borderRadius: 6, backgroundColor: C.blue100 }} />
+        </View>
+      </View>
+      <View style={{ height: 10, width: "35%", borderRadius: 6, backgroundColor: C.blue100, marginTop: 8 }} />
+    </View>
   );
 }
 
@@ -234,7 +285,12 @@ const S = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
   container: { flex: 1, padding: 16 },
 
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   heading: { fontSize: 22, fontWeight: "800", color: C.text },
 
   sortWrap: { flexDirection: "row", gap: 8 },
@@ -254,32 +310,53 @@ const S = StyleSheet.create({
   filters: {
     flexDirection: "row",
     backgroundColor: C.cardBg,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: C.line,
     borderRadius: 12,
-    padding: 4,
+    padding: 6,
     gap: 6,
     marginBottom: 12,
   },
-  filterBtn: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 9 },
-  filterBtnActive: { backgroundColor: "#e8eefc" },
-  filterTxt: { fontSize: 13, color: C.sub, fontWeight: "700" },
+  filterBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 9,
+    borderRadius: 10,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+  },
+  filterBtnActive: { backgroundColor: C.blue50, borderColor: C.blue100 },
+  filterTxt: { fontSize: 13, color: C.sub, fontWeight: "800" },
   filterTxtActive: { color: C.primaryDark },
+  countBadge: {
+    minWidth: 22,
+    height: 18,
+    paddingHorizontal: 6,
+    borderRadius: 9,
+    backgroundColor: "#e2e8f0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countBadgeActive: { backgroundColor: C.blue100 },
+  countBadgeText: { fontSize: 12, fontWeight: "800", color: "#475569" },
+  countBadgeTextActive: { color: C.primaryDark },
 
   card: {
-    backgroundColor: C.cardBg,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
     borderColor: C.line,
     padding: 14,
     marginBottom: 12,
+    gap: 10,
+    position: "relative",
     shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
+    shadowOpacity: Platform.OS === "ios" ? 0.08 : 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
     overflow: "hidden",
-    gap: 8,
   },
   cardAccent: {
     position: "absolute",
@@ -287,18 +364,24 @@ const S = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
+  cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+
+  iconWrap: {
+    width: 36, height: 36, borderRadius: 8,
+    backgroundColor: C.blue50, borderWidth: 1, borderColor: C.blue100,
   },
 
-  message: { fontSize: 16, color: C.text, fontWeight: "800" },
+  message: { fontSize: 16, color: C.text, fontWeight: "800", flex: 1 },
 
   metaRow: { flexDirection: "row", gap: 8 },
   pill: {
     fontSize: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#f1f5f9",
     color: C.text,
     borderRadius: 999,
     overflow: "hidden",
@@ -319,18 +402,21 @@ const S = StyleSheet.create({
   date: { fontSize: 12, color: C.sub, textAlign: "right" },
 
   feedbackBox: {
-    marginTop: 6,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    borderWidth: 1,
     borderColor: C.line,
-    backgroundColor: "#fff",
+    backgroundColor: C.cardBg,
     padding: 10,
     gap: 4,
   },
-  feedbackLabel: { fontSize: 12, color: C.sub, fontWeight: "800", textTransform: "uppercase" },
+  feedbackLabel: { fontSize: 11, color: C.sub, fontWeight: "800", textTransform: "uppercase" },
   feedbackText: { fontSize: 14, color: C.text },
 
-  emptyWrap: { alignItems: "center", marginTop: 32, gap: 6 },
-  emptyIcon: { fontSize: 28 },
+  emptyWrap: { alignItems: "center", marginTop: 32, gap: 10 },
+  emptyIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: C.blue50, borderWidth: 1, borderColor: C.blue100,
+    alignItems: "center", justifyContent: "center",
+  },
   emptyText: { color: C.sub, fontSize: 14, fontWeight: "700" },
 });
