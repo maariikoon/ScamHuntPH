@@ -16,6 +16,7 @@ import { Link } from "expo-router";
 import { auth } from "../../src/firebase";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next"; // 👈 added
 
 const API_BASE_URL = "https://analytics-bcvrqgcc6a-as.a.run.app";
 
@@ -60,6 +61,8 @@ function useScaleOnPress() {
 
 /* ---------- Screen ---------- */
 export default function Home() {
+  const { t } = useTranslation("common"); // 👈 added (use your defaultNS if different)
+
   const [stats, setStats] = useState<Stats>({ verified: 0, pending: 0, popular: "—", today: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -106,9 +109,14 @@ export default function Home() {
             end={{ x: 1, y: 1 }}
             style={S.banner}
           >
-            <Text style={S.brand}>ScamHuntPH</Text>
+            <Text style={S.brand}>
+              {t("home.banner.brand", { defaultValue: "ScamHuntPH" })}
+            </Text>
             <Text style={S.tagline}>
-              Awareness is Protection.{"\n"}Reporting is Power.{"\n"}Always Stay Protected.
+              {t("home.banner.tagline", {
+                defaultValue:
+                  "Awareness is Protection.\nReporting is Power.\nAlways Stay Protected.",
+              })}
             </Text>
 
             <LinearGradient
@@ -121,13 +129,13 @@ export default function Home() {
         </View>
 
         {/* This Week */}
-        <Section title="This Week">
+        <Section title={t("home.section.thisWeek", { defaultValue: "This Week" })}>
           <View style={S.grid2}>
             {loading ? (
               <SkeletonCard />
             ) : (
               <StatCard
-                label="Trending Scam Category"
+                label={t("home.stats.trending", { defaultValue: "Trending Scam Category" })}
                 value={stats.popular}
                 icon={<MaterialCommunityIcons name="chart-timeline-variant" size={22} color={C.primary} />}
               />
@@ -136,7 +144,7 @@ export default function Home() {
               <SkeletonCard />
             ) : (
               <StatCard
-                label="Your Verified Reports"
+                label={t("home.stats.verified", { defaultValue: "Your Verified Reports" })}
                 value={stats.verified}
                 icon={<Ionicons name="checkmark-circle" size={22} color={C.primary} />}
               />
@@ -148,7 +156,7 @@ export default function Home() {
               <SkeletonCard />
             ) : (
               <StatCard
-                label="Your Reports Today"
+                label={t("home.stats.today", { defaultValue: "Your Reports Today" })}
                 value={stats.today}
                 icon={<Ionicons name="today" size={22} color={C.primary} />}
               />
@@ -157,7 +165,7 @@ export default function Home() {
               <SkeletonCard />
             ) : (
               <StatCard
-                label="Your Pending Reports"
+                label={t("home.stats.pending", { defaultValue: "Your Pending Reports" })}
                 value={stats.pending}
                 icon={<Ionicons name="time-outline" size={22} color={C.primary} />}
               />
@@ -166,17 +174,17 @@ export default function Home() {
         </Section>
 
         {/* General */}
-        <Section title="General">
+        <Section title={t("home.section.general", { defaultValue: "General" })}>
           <View style={S.grid2}>
             <Link href="/report" asChild>
               <QuickAction
-                label="Report a Scam"
+                label={t("home.actions.report", { defaultValue: "Report a Scam" })}
                 icon={<Ionicons name="create-outline" size={26} color={C.primaryDark} />}
               />
             </Link>
             <Link href="/learn" asChild>
               <QuickAction
-                label="Learn Scam"
+                label={t("home.actions.learn", { defaultValue: "Learn Scam" })}
                 icon={<Ionicons name="book-outline" size={26} color={C.primaryDark} />}
               />
             </Link>
@@ -184,13 +192,13 @@ export default function Home() {
           <View style={S.grid2}>
             <Link href="/reports/myreports" asChild>
               <QuickAction
-                label="My Reports"
+                label={t("home.actions.myReports", { defaultValue: "My Reports" })}
                 icon={<Ionicons name="document-text-outline" size={26} color={C.primaryDark} />}
               />
             </Link>
             <Link href="/public-reports/public-reports" asChild>
               <QuickAction
-                label="Public Reports"
+                label={t("home.actions.publicReports", { defaultValue: "Public Reports" })}
                 icon={<Ionicons name="search-outline" size={26} color={C.primaryDark} />}
               />
             </Link>

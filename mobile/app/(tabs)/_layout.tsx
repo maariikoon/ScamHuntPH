@@ -1,41 +1,32 @@
 // app/(tabs)/_layout.tsx
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Tabs, useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { View, Pressable, StyleSheet, Text, Platform } from "react-native";
 import { useNotifications } from "../../src/context/NotificationsContext";
 import { useTranslation } from "react-i18next";
+import i18n from "../../i18n";
 
-/* ---------- Theme (match Home screen blues) ---------- */
 const C = {
   text: "#0f172a",
   line: "#e6eaf0",
-  blue50:  "#eff6ff",
+  blue50: "#eff6ff",
   blue100: "#dbeafe",
-  blue500: "#3b82f6",
   blue600: "#2563eb",
-  blue700: "#1d4ed8",
   danger: "#ef4444",
 };
 
-/* ---------- Util ---------- */
 const formatCount = (n: number) => (n > 9 ? "9+" : n);
 
-/* ---------- Bell with number badge ---------- */
-type BellIconProps = Readonly<{
-  unreadCount: number;
-  onPress: () => void;
-}>;
-
+type BellIconProps = Readonly<{ unreadCount: number; onPress: () => void }>;
 const BellIcon = React.memo(function BellIcon({ unreadCount, onPress }: BellIconProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("common");
   const display = formatCount(unreadCount);
-
   const a11yLabel =
     unreadCount > 0
-      ? t("tabs.alertsUnread", "{{count}} unread alerts", { count: unreadCount })
-      : t("tabs.openAlerts", "Open alerts");
+      ? t("tabs.alertsUnread", { defaultValue: "{{count}} unread alerts", count: unreadCount })
+      : t("tabs.openAlerts", { defaultValue: "Open alerts" });
 
   return (
     <Pressable
@@ -44,7 +35,7 @@ const BellIcon = React.memo(function BellIcon({ unreadCount, onPress }: BellIcon
       hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
       accessibilityRole="button"
       accessibilityLabel={a11yLabel}
-      accessibilityHint={t("tabs.alertsHint", "Opens your notifications and alerts")}
+      accessibilityHint={t("tabs.alertsHint", { defaultValue: "Opens your notifications and alerts" })}
     >
       <Ionicons name="notifications-outline" size={26} color={C.blue600} />
       {unreadCount > 0 && (
@@ -58,45 +49,44 @@ const BellIcon = React.memo(function BellIcon({ unreadCount, onPress }: BellIcon
   );
 });
 
-/* ---------- Tabs Layout ---------- */
-export default function TabLayout() {
-  const { t } = useTranslation();
+export default function TabsLayout() {
+  const { t } = useTranslation("common");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { unreadCount, refresh } = useNotifications();
 
-  // Keep badges consistent across header bell & Alerts tab
-  const alertsBadge = useMemo(
-    () => (unreadCount > 0 ? formatCount(unreadCount) : undefined),
-    [unreadCount]
-  );
+  const [lang, setLang] = useState<"en" | "fil">(() => {
+    const l = (i18n.language || "en").toLowerCase();
+    return l.startsWith("fil") || l.startsWith("tl") ? "fil" : "en";
+  });
+  useEffect(() => {
+    const onLang = (l: string) => {
+      const norm = (l || "en").toLowerCase();
+      setLang(norm.startsWith("fil") || norm.startsWith("tl") ? "fil" : "en");
+    };
+    i18n.on("languageChanged", onLang);
+    return () => i18n.off("languageChanged", onLang);
+  }, []);
 
-  // Refresh counts when the tabs layout gains focus (returning from a push)
-  useFocusEffect(
-    React.useCallback(() => {
-      refresh?.();
-    }, [refresh])
-  );
+  const alertsBadge = useMemo(() => (unreadCount > 0 ? formatCount(unreadCount) : undefined), [unreadCount]);
+
+  useFocusEffect(React.useCallback(() => { refresh?.(); }, [refresh]));
 
   return (
     <Tabs
+      key={lang}
       screenOptions={{
         headerShown: true,
         headerTitleAlign: "left",
         headerTitleStyle: { fontWeight: "800", color: C.text },
         headerShadowVisible: false,
-        headerStyle: {
-          backgroundColor: "#fff",
-        },
+        headerStyle: { backgroundColor: "#fff" },
         tabBarActiveTintColor: C.blue600,
         tabBarInactiveTintColor: "#94a3b8",
         tabBarLabelStyle: { fontWeight: "700", fontSize: 12 },
         tabBarStyle: [
           S.tabBar,
-          {
-            paddingBottom: Math.max(insets.bottom, 6),
-            height: 56 + insets.bottom,
-          },
+          { paddingBottom: Math.max(insets.bottom, 6), height: 56 + insets.bottom },
         ],
         headerRight: () => (
           <View style={{ marginRight: 12 }}>
@@ -114,7 +104,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: t("tabs.home", "Home"),
+          title: t("tabs.home", { defaultValue: "Home" }),
+          tabBarLabel: t("tabs.home", { defaultValue: "Home" }),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "home" : "home-outline"} size={size} color={color} />
           ),
@@ -123,7 +114,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="learn"
         options={{
-          title: t("tabs.learn", "Learn"),
+          title: t("tabs.learn", { defaultValue: "Learn" }),
+          tabBarLabel: t("tabs.learn", { defaultValue: "Learn" }),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "book" : "book-outline"} size={size} color={color} />
           ),
@@ -132,7 +124,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="report"
         options={{
-          title: t("tabs.report", "Report"),
+          title: t("tabs.report", { defaultValue: "Report" }),
+          tabBarLabel: t("tabs.report", { defaultValue: "Report" }),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "create" : "create-outline"} size={size} color={color} />
           ),
@@ -141,17 +134,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="alerts"
         options={{
-          title: t("tabs.alerts", "Alerts"),
+          title: t("tabs.alerts", { defaultValue: "Alerts" }),
+          tabBarLabel: t("tabs.alerts", { defaultValue: "Alerts" }),
           tabBarBadge: alertsBadge,
           tabBarBadgeStyle: S.tabBadge,
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? "notifications" : "notifications-outline"}
-              size={size}
-              color={color}
-            />
+            <Ionicons name={focused ? "notifications" : "notifications-outline"} size={size} color={color} />
           ),
-          // When user taps Alerts tab, refresh counts
           tabBarButton: (props) => (
             <Pressable
               {...props}
@@ -159,7 +148,7 @@ export default function TabLayout() {
                 props.onPress?.(e);
                 refresh?.();
               }}
-              ref={undefined} // Explicitly set ref to undefined to avoid type mismatch
+              ref={undefined}
             />
           ),
         }}
@@ -167,7 +156,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: t("tabs.profile", "Profile"),
+          title: t("tabs.profile", { defaultValue: "Profile" }),
+          tabBarLabel: t("tabs.profile", { defaultValue: "Profile" }),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "person" : "person-outline"} size={size} color={color} />
           ),
@@ -177,27 +167,17 @@ export default function TabLayout() {
   );
 }
 
-/* ---------- Styles ---------- */
 const S = StyleSheet.create({
   tabBar: {
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: C.line,
     ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: -2 },
-      },
+      ios: { shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: -2 } },
       android: { elevation: 8 },
     }),
   },
-
-  bellWrap: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
+  bellWrap: { paddingHorizontal: 6, paddingVertical: 4 },
   badge: {
     position: "absolute",
     right: Platform.select({ ios: 2, android: 0 }) as number,
@@ -220,7 +200,6 @@ const S = StyleSheet.create({
     includeFontPadding: false,
     textAlignVertical: "center",
   },
-
   tabBadge: {
     backgroundColor: C.danger,
     color: "#fff",
@@ -231,4 +210,3 @@ const S = StyleSheet.create({
     textAlign: "center",
   },
 });
-

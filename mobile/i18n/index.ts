@@ -1,49 +1,68 @@
-import i18n from "i18next";
+// /i18n/index.ts
+import i18n, { type i18n as I18nType } from "i18next";
 import { initReactI18next } from "react-i18next";
 import * as Localization from "expo-localization";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import en from "./resources/en.json";
-import fil from "./resources/fil.json";
+// Local JSON resources (namespace: common)
+import enCommon from "./locales/en/common.json";
+import filCommon from "./locales/fil/common.json";
 
-export const LANG_KEY = "app.lang";
+const STORAGE_KEY = "app.language";
 
-const resources = {
-  en: { translation: en },
-  fil: { translation: fil }, // we'll map device 'tl' -> 'fil'
-};
-
-// Try to map device code 'tl' or 'fil' to our 'fil'
-function deviceToAppLang(): "en" | "fil" {
-  const code =
-    Localization.getLocales?.()[0]?.languageCode?.toLowerCase() ?? "en";
-  if (code === "tl" || code === "fil") return "fil";
-  return "en";
-}
-
-i18n
-  .use(initReactI18next)
-  .init({
-    resources,
-    lng: "en",                 // temporary default; we'll override below
-    fallbackLng: "en",
-    interpolation: { escapeValue: false }
-  });
-
-// Initialize from storage/device and switch i18n language
-export async function initI18n() {
-  try {
-    const stored = await AsyncStorage.getItem(LANG_KEY);
-    const chosen = (stored as "en" | "fil" | null) ?? deviceToAppLang();
-    await i18n.changeLanguage(chosen);
-  } catch {
-    await i18n.changeLanguage(deviceToAppLang());
+// Map device locales to our supported ones
+function normalizeDeviceLang(): "en" | "fil" {
+  // Newer Expo: getLocales() → [{ languageCode: "en", languageTag: "en-US", ... }]
+  let code: string | undefined;
+  if (typeof Localization.getLocales === "function") {
+    const arr = Localization.getLocales();
+    code = arr?.[0]?.languageCode || arr?.[0]?.languageTag?.split?.("-")?.[0];
   }
+  // Older fallback: "en-US"
+  // @ts-ignore
+  code = code || Localization.getLocales()?.[0]?.languageTag?.split?.("-")?.[0] || "en";
+
+  const raw = String(code).toLowerCase();
+  return raw === "tl" || raw === "fil" ? "fil" : "en";
 }
 
-export async function setAppLanguage(lang: "en" | "fil") {
-  await AsyncStorage.setItem(LANG_KEY, lang);
-  await i18n.changeLanguage(lang);
+export async function initI18n(): Promise<I18nType> {
+  const persisted = (await AsyncStorage.getItem(STORAGE_KEY)) as "en" | "fil" | null;
+  const initial = persisted || normalizeDeviceLang();
+
+  if (!i18n.isInitialized) {
+    await i18n.use(initReactI18next).init({
+      compatibilityJSON: "v4",
+      resources: {
+        en: { common: enCommon },
+        fil: { common: filCommon },
+      },
+      lng: initial,
+      fallbackLng: "en",
+      ns: ["common"],
+      defaultNS: "common",
+      supportedLngs: ["en", "fil"],
+      nonExplicitSupportedLngs: true,
+      load: "languageOnly",
+      interpolation: { escapeValue: false },
+      returnNull: false,
+    });
+  } else {
+    await i18n.changeLanguage(initial);
+  }
+
+  return i18n;
+}
+
+export async function setAppLanguage(code: "en" | "fil") {
+  if (i18n.language !== code) {
+    await i18n.changeLanguage(code);
+  }
+  await AsyncStorage.setItem(STORAGE_KEY, code);
+}
+
+export function getCurrentLanguage(): "en" | "fil" {
+  return (i18n.language as "en" | "fil") || "en";
 }
 
 export default i18n;
