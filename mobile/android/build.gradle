@@ -9,7 +9,6 @@ buildscript {
     classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
     classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.20")
-    classpath("com.google.devtools.ksp:symbol-processing-gradle-plugin:2.1.20-2.0.1")
   }
 }
 
@@ -24,3 +23,13 @@ allprojects {
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
+
+// 🛠️ Force-disable all KSP tasks globally for Expo EAS (Debug + Release)
+gradle.projectsEvaluated {
+    tasks.matching { it.name.toLowerCase().contains("ksp") }.all { task ->
+        if (task.path.startsWith(":expo-updates:")) {
+            task.enabled = false
+            println("⚙️ Disabled KSP task globally: ${task.path}")
+        }
+    }
+}

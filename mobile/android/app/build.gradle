@@ -83,11 +83,6 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-// Disable KSP to avoid expo-updates compiler crash
-gradle.startParameter.excludedTaskNames += [
-  "kspDebugKotlin",
-  "kspReleaseKotlin"
-]
 
 
 android {
