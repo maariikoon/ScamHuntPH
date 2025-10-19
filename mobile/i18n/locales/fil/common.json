@@ -1,0 +1,124 @@
+{
+  "tabs": {
+    "home": "Home",
+    "learn": "Aralin",
+    "report": "I-report",
+    "alerts": "Abiso",
+    "profile": "Profile",
+    "alertsUnread": "{{count}} hindi pa nababasang abiso",
+    "openAlerts": "Buksan ang mga abiso",
+    "alertsHint": "Binubuksan ang iyong mga notipikasyon at abiso"
+  },
+
+  "reports": {
+    "title": "Pampublikong Ulat",
+    "subtitle": "Mga mensaheng ipinasa ng komunidad at beripikado ng team.",
+    "filter": "I-filter ayon sa Kategorya",
+    "allCategories": "Lahat ng Kategorya",
+    "timeRange": "Saklaw ng Oras",
+    "r7d": "7d",
+    "r30d": "30d",
+    "r90d": "90d",
+    "region": "Rehiyon",
+    "category": "Kategorya",
+    "empty": "Walang ulat para sa piniling filter.",
+    "loadMore": "Mag-load pa",
+    "reported": "Na-ulat",
+    "verified": "Na-beripika",
+    "verificationRate": "Antas ng Pag-beripika",
+    "badges": {
+      "minutesAgo": "{{count}}m nakalipas",
+      "hoursAgo": "{{count}}h nakalipas",
+      "daysAgo": "{{count}}d nakalipas"
+    },
+    "labels": {
+      "category": "Kategorya",
+      "location": "Lokasyon",
+      "time": "Oras"
+    }
+  },
+
+  "notifications": {
+    "title": "Mga Abiso",
+    "markAll": "Markahan lahat bilang nabasa",
+    "tabs": {
+      "all": "Lahat",
+      "unread": "Hindi pa nababasa",
+      "read": "Nabasa na"
+    },
+    "counts": {
+      "unread": "{{count}} hindi pa nababasa"
+    },
+    "row": {
+      "approvedTitle": "Naaprubahan ang Ulat ✅",
+      "approvedMsg": "Na-beripika ng admin ang iyong scam report.",
+      "deniedTitle": "Tinanggihan ang Ulat ❌",
+      "deniedMsg": "Tinanggihan ng admin ang iyong scam report.",
+      "markRead": "Markahan bilang nabasa",
+      "marked": "Naitala bilang nabasa"
+    },
+    "empty": {
+      "all": "Wala pang mga abiso.",
+      "unread": "Wala ka nang kailangang basahin!",
+      "read": "Walang nabasang abiso."
+    }
+  },
+
+  "alerts": {
+    "title": "Abiso",
+    "quickLinks": "Mabilisang Link",
+    "unreadAlert": "May {{count}} kang hindi pa nababasang abiso — i-tap para makita",
+    "yourReports": "Iyong mga Ulat",
+    "yourReportsDesc": "Tingnan, subaybayan, at pamahalaan ang iyong mga pagsusumite.",
+    "scamTrends": "Mga Scam Trend",
+    "scamTrendsDesc": "Alamin ang mga tumataas ayon sa rehiyon at kategorya."
+  },
+
+  "trends": {
+    "title": "Mga Scam Trend",
+    "subtitle": "Alamin kung ano ang tumataas ayon sa rehiyon at kategorya.",
+    "timeRange": "Saklaw ng Oras",
+    "r7d": "7d",
+    "r30d": "30d",
+    "r90d": "90d",
+    "sections": {
+      "overview": "Pangkalahatan",
+      "byCategory": "Nangungunang Kategorya",
+      "byRegion": "Nangungunang Rehiyon",
+      "volume": "Dami ng Ulat",
+      "recentSpikes": "Mga Biglang Pagtaas"
+    },
+    "metrics": {
+      "totalReports": "Kabuuang Ulat",
+      "verified": "Na-beripika",
+      "verificationRate": "Antas ng Pag-beripika",
+      "avgPerDay": "Avg bawat araw"
+    },
+    "empty": "Walang datos ng trend para sa saklaw na ito."
+  },
+
+  "profile": {
+    "title": "Profile",
+    "yourImpact": "Iyong Epekto",
+    "reported": "Na-ulat",
+    "verified": "Na-beripika",
+    "verificationRate": "Antas ng Pag-beripika",
+    "settings": "Mga Setting",
+    "language": "Wika",
+    "languageNote": "Awtomatikong mag-a-update ang wika ng app.",
+    "accountSettings": "Mga Setting ng Account",
+    "privacySecurity": "Privacy at Seguridad",
+    "notifications": "Mga Kagustuhan sa Abiso",
+    "myReports": "Aking mga Ulat",
+    "signOut": "Mag-sign out"
+  },
+
+  "common": {
+    "cancel": "Kanselahin",
+    "confirm": "Kumpirmahin",
+    "save": "I-save",
+    "saving": "Sini-save...",
+    "clear": "I-clear",
+    "error": "Error"
+  }
+}

@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
@@ -28,7 +29,7 @@ const C = {
   text: "#0f172a",
   sub: "#64748b",
   line: "#e5e7eb",
-  primary: "#2563eb", // web admin blue vibe
+  primary: "#2563eb",
   primaryDark: "#1e40af",
   danger: "#ef4444",
   card: "#f8fafc",
@@ -63,15 +64,15 @@ export default function Login(): JSX.Element {
       await MobileApi.heartbeat(true);
       router.replace("/home");
     } catch (error: any) {
-      console.error("❌ Login failed:", error.code, error.message);
+      console.error("❌ Login failed:", error?.code, error?.message);
       let friendlyMessage = t("login.errors.generic", "Something went wrong. Please try again.");
-      if (error.code === "auth/invalid-credential" || error.code === "auth/wrong-password") {
+      if (error?.code === "auth/invalid-credential" || error?.code === "auth/wrong-password") {
         friendlyMessage = t("login.errors.wrongPassword", "Incorrect email or password.");
-      } else if (error.code === "auth/user-not-found") {
+      } else if (error?.code === "auth/user-not-found") {
         friendlyMessage = t("login.errors.userNotFound", "No account found with this email.");
-      } else if (error.code === "auth/invalid-email") {
+      } else if (error?.code === "auth/invalid-email") {
         friendlyMessage = t("login.errors.invalidEmail", "Please enter a valid email address.");
-      } else if (error.code === "auth/too-many-requests") {
+      } else if (error?.code === "auth/too-many-requests") {
         friendlyMessage = t("login.errors.tooMany", "Too many failed attempts. Please wait a few minutes.");
       }
       setErr(friendlyMessage);
@@ -83,7 +84,10 @@ export default function Login(): JSX.Element {
   const handleForgotPassword = async () => {
     const e = email.trim().toLowerCase();
     if (!e) {
-      Alert.alert(t("login.forgotTitle", "Forgot Password"), t("login.enterEmailFirst", "Please enter your email first."));
+      Alert.alert(
+        t("login.forgotTitle", "Forgot Password"),
+        t("login.enterEmailFirst", "Please enter your email first.")
+      );
       return;
     }
     try {
@@ -91,10 +95,13 @@ export default function Login(): JSX.Element {
         url: "https://scamhuntph-b3485.web.app/reset-password",
         handleCodeInApp: true,
       });
-      Alert.alert(t("login.emailSentTitle", "📧 Email Sent"), t("login.emailSentBody", "Check your inbox for the password reset link."));
+      Alert.alert(
+        t("login.emailSentTitle", "📧 Email Sent"),
+        t("login.emailSentBody", "Check your inbox for the password reset link.")
+      );
     } catch (err: any) {
       console.error("❌ Forgot password error:", err);
-      Alert.alert(t("common.error", "Error"), err.message);
+      Alert.alert(t("common.error", "Error"), err?.message || "Failed to send reset email.");
     }
   };
 
@@ -106,109 +113,126 @@ export default function Login(): JSX.Element {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
       >
-        <View style={S.wrap}>
-          {/* Header */}
-          <View style={{ alignItems: "center", marginBottom: 18 }}>
-            <Text style={S.title}>{t("login.title", "Welcome back")}</Text>
-            <Text style={S.subtitle}>{t("login.subtitle", "Sign in to continue")}</Text>
-          </View>
-
-          {/* Card */}
-          <View style={S.card}>
-            {/* Email */}
-            <View style={S.fieldWrap}>
-              <View style={S.leadingIcon}>
-                <Ionicons name="mail-outline" size={18} color={C.sub} />
+        {/* ✅ ScrollView ensures taps reach inputs, even on Android */}
+        <ScrollView
+          contentContainerStyle={S.scroll}
+          keyboardShouldPersistTaps="always"
+        >
+          <View style={S.wrap} pointerEvents="box-none">
+            {/* Header */}
+            <View style={S.brand} pointerEvents="box-none">
+              <View style={S.brandBadge}>
+                <Ionicons name="shield-checkmark-outline" size={20} color={C.primaryDark} />
               </View>
-              <TextInput
-                style={S.input}
-                placeholder={t("login.email", "Email")}
-                placeholderTextColor={C.sub}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                textContentType="emailAddress"
-                returnKeyType="next"
-                value={email}
-                onChangeText={(tval) => {
-                  setEmail(tval);
-                  if (err) setErr(null);
-                }}
-                onSubmitEditing={() => pwRef.current?.focus()}
-                accessibilityLabel={t("login.emailA11y", "Email address")}
-              />
+              <Text style={S.title}>{t("login.title", "Login")}</Text>
+              <Text style={S.subtitle}>{t("login.subtitle", "Sign in to continue")}</Text>
             </View>
 
-            {/* Password */}
-            <View style={S.fieldWrap}>
-              <View style={S.leadingIcon}>
-                <Ionicons name="lock-closed-outline" size={18} color={C.sub} />
-              </View>
-              <TextInput
-                ref={pwRef}
-                style={S.input}
-                placeholder={t("login.password", "Password")}
-                placeholderTextColor={C.sub}
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={(tval) => {
-                  setPassword(tval);
-                  if (err) setErr(null);
-                }}
-                textContentType="password"
-                returnKeyType="done"
-                onSubmitEditing={handleLogin}
-                accessibilityLabel={t("login.passwordA11y", "Password")}
-              />
-              <TouchableOpacity
-                style={S.trailingIcon}
-                onPress={() => setShowPassword((s) => !s)}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  showPassword
-                    ? t("login.hidePassword", "Hide password")
-                    : t("login.showPassword", "Show password")
-                }
-              >
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={18}
-                  color={C.sub}
+            {/* Card */}
+            <View style={S.card}>
+              {/* Email */}
+              <View style={S.fieldWrap}>
+                <View style={S.leadingIcon}>
+                  <Ionicons name="mail-outline" size={18} color={C.sub} />
+                </View>
+                <TextInput
+                  style={S.input}
+                  placeholder={t("login.email", "Email")}
+                  placeholderTextColor={C.sub}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  returnKeyType="next"
+                  value={email}
+                  onChangeText={(tval) => {
+                    setEmail(tval);
+                    if (err) setErr(null);
+                  }}
+                  onSubmitEditing={() => pwRef.current?.focus()}
+                  accessibilityLabel={t("login.emailA11y", "Email address")}
                 />
+              </View>
+
+              {/* Password */}
+              <View style={S.fieldWrap}>
+                <View style={S.leadingIcon}>
+                  <Ionicons name="lock-closed-outline" size={18} color={C.sub} />
+                </View>
+                <TextInput
+                  ref={pwRef}
+                  style={S.input}
+                  placeholder={t("login.password", "Password")}
+                  placeholderTextColor={C.sub}
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={(tval) => {
+                    setPassword(tval);
+                    if (err) setErr(null);
+                  }}
+                  textContentType="password"
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                  accessibilityLabel={t("login.passwordA11y", "Password")}
+                />
+                <TouchableOpacity
+                  style={S.trailingIcon}
+                  onPress={() => setShowPassword((s) => !s)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showPassword
+                      ? t("login.hidePassword", "Hide password")
+                      : t("login.showPassword", "Show password")
+                  }
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={18}
+                    color={C.sub}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Inline error */}
+              {err ? (
+                <View style={S.errorRow}>
+                  <Ionicons name="warning-outline" size={16} color={C.danger} />
+                  <Text style={S.error}>{err}</Text>
+                </View>
+              ) : null}
+
+              {/* Login button */}
+              <TouchableOpacity
+                style={[S.btn, disabled && { opacity: 0.6 }]}
+                onPress={handleLogin}
+                disabled={disabled}
+                accessibilityRole="button"
+                accessibilityLabel={t("login.loginA11y", "Login")}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <View style={S.btnInner}>
+                    <Ionicons name="log-in-outline" size={18} color="#fff" />
+                    <Text style={S.btnText}>{t("login.loginBtn", "Login")}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Links */}
+              <TouchableOpacity onPress={handleForgotPassword} style={{ marginTop: 10 }}>
+                <Text style={S.link}>{t("login.forgot", "Forgot your password?")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.replace("/(auth)/signup")}
+                style={{ marginTop: 6 }}
+              >
+                <Text style={S.link}>{t("login.signup", "Don't have an account? Sign up")}</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Inline error */}
-            {err ? <Text style={S.error}>{err}</Text> : null}
-
-            {/* Login button */}
-            <TouchableOpacity
-              style={[S.btn, disabled && { opacity: 0.6 }]}
-              onPress={handleLogin}
-              disabled={disabled}
-              accessibilityRole="button"
-              accessibilityLabel={t("login.loginA11y", "Login")}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={S.btnText}>{t("login.loginBtn", "Login")}</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Links */}
-            <TouchableOpacity onPress={handleForgotPassword} style={{ marginTop: 10 }}>
-              <Text style={S.link}>{t("login.forgot", "Forgot your password?")}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => router.replace("/(auth)/signup")}
-              style={{ marginTop: 6 }}
-            >
-              <Text style={S.link}>{t("login.signup", "Don't have an account? Sign up")}</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -217,10 +241,27 @@ export default function Login(): JSX.Element {
 /* ---- Styles ---- */
 const S = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
+
+  // ensures there is vertical room and taps are not intercepted
+  scroll: { flexGrow: 1 },
+
   wrap: {
     flex: 1,
     padding: 20,
     justifyContent: "center",
+  },
+
+  brand: { alignItems: "center", marginBottom: 18 },
+  brandBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#eef2ff",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#dbeafe",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
 
   title: { fontSize: 28, fontWeight: "800", color: C.text },
@@ -268,11 +309,11 @@ const S = StyleSheet.create({
     fontSize: 16,
   },
 
+  errorRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2, marginBottom: 8 },
   error: {
     color: C.danger,
     fontWeight: "600",
-    marginTop: 4,
-    marginBottom: 8,
+    flexShrink: 1,
   },
 
   btn: {
@@ -282,7 +323,10 @@ const S = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 6,
+    // make sure it cannot float over inputs
+    alignSelf: "stretch",
   },
+  btnInner: { flexDirection: "row", alignItems: "center", gap: 8 },
   btnText: { color: "#fff", fontSize: 16, fontWeight: "800" },
 
   link: { color: C.primary, textAlign: "center", fontWeight: "600" },

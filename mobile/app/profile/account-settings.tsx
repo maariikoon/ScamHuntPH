@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+// app/profile/account-settings.tsx (adjust the path/filename as needed)
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -15,8 +16,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { auth } from "../../src/firebase";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 import { Picker } from "@react-native-picker/picker";
+// If this screen lives in app/profile/, the correct import is usually "../../components/LanguagePicker"
 import LanguagePicker from "../components/LanguagePicker";
+ // ← adjust if your folder structure differs
 import { useTranslation } from "react-i18next";
+import { useNavigation } from "expo-router";
 
 const db = getFirestore();
 
@@ -36,7 +40,9 @@ function isValidBirthday(v: string) {
   if (!v) return true; // optional
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.trim());
   if (!m) return false;
-  const y = +m[1], mo = +m[2], d = +m[3];
+  const y = +m[1],
+    mo = +m[2],
+    d = +m[3];
   const dt = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
   return (
     dt.getUTCFullYear() === y &&
@@ -48,7 +54,16 @@ function isValidBirthday(v: string) {
 }
 
 export default function AccountSettings() {
+  const navigation = useNavigation();
   const { t } = useTranslation();
+
+  // ✅ translated Stack header (auto-updates when language changes)
+  useEffect(() => {
+    navigation.setOptions({
+      title: t("profile.accountSettings", { defaultValue: "Account Settings" }),
+    });
+  }, [navigation, t]);
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [birthday, setBirthday] = useState("");
@@ -109,17 +124,24 @@ export default function AccountSettings() {
     if (!user) return;
 
     if (!valid) {
-      Alert.alert(t("account.invalidDateTitle"), t("account.invalidDateMsg"));
+      Alert.alert(
+        t("account.invalidDateTitle", { defaultValue: "Invalid date" }),
+        t("account.invalidDateMsg", {
+          defaultValue: "Please enter a valid date in YYYY-MM-DD format.",
+        })
+      );
       return;
     }
 
     Alert.alert(
-      t("account.confirmSaveTitle"),
-      t("account.confirmSaveMsg"),
+      t("account.confirmSaveTitle", { defaultValue: "Save changes?" }),
+      t("account.confirmSaveMsg", {
+        defaultValue: "Do you want to save your account changes?",
+      }),
       [
-        { text: t("common.cancel"), style: "cancel" },
+        { text: t("common.cancel", { defaultValue: "Cancel" }), style: "cancel" },
         {
-          text: t("common.confirm"),
+          text: t("common.confirm", { defaultValue: "Confirm" }),
           onPress: async () => {
             try {
               setSaving(true);
@@ -129,9 +151,12 @@ export default function AccountSettings() {
                 { merge: true }
               );
               setInitial({ firstName, lastName, birthday, region });
-              Alert.alert("✅", t("account.successMsg"));
+              Alert.alert("✅", t("account.successMsg", { defaultValue: "Saved successfully." }));
             } catch (e: any) {
-              Alert.alert(t("common.error"), e?.message ?? t("account.saveError"));
+              Alert.alert(
+                t("common.error", { defaultValue: "Error" }),
+                e?.message ?? t("account.saveError", { defaultValue: "Failed to save changes." })
+              );
             } finally {
               setSaving(false);
             }
@@ -153,16 +178,24 @@ export default function AccountSettings() {
             <LanguagePicker />
           </View>
 
-          <Text style={S.title}>{t("account.title")}</Text>
-          <Text style={S.subtitle}>{t("account.subtitle")}</Text>
+          <Text style={S.title}>
+            {t("account.title", { defaultValue: "Account Settings" })}
+          </Text>
+          <Text style={S.subtitle}>
+            {t("account.subtitle", {
+              defaultValue: "Update your personal information and region.",
+            })}
+          </Text>
 
           {/* First Name */}
-          <Text style={S.label}>{t("account.firstName")}</Text>
+          <Text style={S.label}>
+            {t("account.firstName", { defaultValue: "First Name" })}
+          </Text>
           <View style={S.fieldWrap}>
             <Ionicons name="person-outline" size={18} color={C.primaryDark} style={S.leading} />
             <TextInput
               style={S.input}
-              placeholder={t("account.firstNamePh")}
+              placeholder={t("account.firstNamePh", { defaultValue: "Juan" })}
               value={firstName}
               onChangeText={setFirstName}
               autoCapitalize="words"
@@ -171,12 +204,14 @@ export default function AccountSettings() {
           </View>
 
           {/* Last Name */}
-          <Text style={S.label}>{t("account.lastName")}</Text>
+          <Text style={S.label}>
+            {t("account.lastName", { defaultValue: "Last Name" })}
+          </Text>
           <View style={S.fieldWrap}>
             <Ionicons name="person-outline" size={18} color={C.primaryDark} style={S.leading} />
             <TextInput
               style={S.input}
-              placeholder={t("account.lastNamePh")}
+              placeholder={t("account.lastNamePh", { defaultValue: "Dela Cruz" })}
               value={lastName}
               onChangeText={setLastName}
               autoCapitalize="words"
@@ -184,7 +219,9 @@ export default function AccountSettings() {
           </View>
 
           {/* Birthday */}
-          <Text style={S.label}>{t("account.birthdayLabel")}</Text>
+          <Text style={S.label}>
+            {t("account.birthdayLabel", { defaultValue: "Birthday (YYYY-MM-DD)" })}
+          </Text>
           <View style={[S.fieldWrap, !valid && { borderColor: "#fecaca", backgroundColor: "#fff1f2" }]}>
             <Ionicons name="calendar-outline" size={18} color={C.primaryDark} style={S.leading} />
             <TextInput
@@ -196,13 +233,23 @@ export default function AccountSettings() {
               maxLength={10}
             />
           </View>
-          {!valid && <Text style={S.errorText}>{t("account.invalidDateInline")}</Text>}
+          {!valid && (
+            <Text style={S.errorText}>
+              {t("account.invalidDateInline", {
+                defaultValue: "Please enter a valid date.",
+              })}
+            </Text>
+          )}
 
           {/* Region */}
-          <Text style={S.label}>{t("account.region")}</Text>
+          <Text style={S.label}>{t("account.region", { defaultValue: "Region" })}</Text>
           <View style={S.pickerWrap}>
             <Ionicons name="location-outline" size={18} color={C.primaryDark} style={S.leading} />
-            <Picker selectedValue={region} style={S.picker} onValueChange={(v) => setRegion(String(v))}>
+            <Picker
+              selectedValue={region}
+              style={S.picker}
+              onValueChange={(v) => setRegion(String(v))}
+            >
               <Picker.Item label="NCR – National Capital Region" value="NCR" />
               <Picker.Item label="Region I – Ilocos Region" value="Region I" />
               <Picker.Item label="Region II – Cagayan Valley" value="Region II" />
@@ -219,14 +266,19 @@ export default function AccountSettings() {
               <Picker.Item label="Region XII – SOCCSKSARGEN" value="Region XII" />
               <Picker.Item label="Region XIII – Caraga" value="Region XIII" />
               <Picker.Item label="CAR – Cordillera Administrative Region" value="CAR" />
-              <Picker.Item label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao" value="BARMM" />
+              <Picker.Item
+                label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao"
+                value="BARMM"
+              />
             </Picker>
           </View>
 
           {/* Buttons */}
           <View style={S.btnRow}>
             <TouchableOpacity style={[S.button, S.btnGhost]} onPress={clearForm}>
-              <Text style={S.btnGhostText}>{t("common.clear")}</Text>
+              <Text style={S.btnGhostText}>
+                {t("common.clear", { defaultValue: "Clear" })}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -235,7 +287,9 @@ export default function AccountSettings() {
               disabled={!dirty || !valid || saving}
             >
               <Text style={S.btnPrimaryText}>
-                {saving ? t("common.saving") : t("common.save")}
+                {saving
+                  ? t("common.saving", { defaultValue: "Saving..." })
+                  : t("common.save", { defaultValue: "Save" })}
               </Text>
             </TouchableOpacity>
           </View>

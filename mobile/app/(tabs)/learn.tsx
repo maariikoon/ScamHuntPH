@@ -93,13 +93,14 @@ export default function Learn() {
   const ListHeader = () => (
     <View style={styles.headerWrap}>
       <Text style={styles.heading}>Learn</Text>
+
       <View style={styles.searchRow}>
         <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder="Search lessons…"
           style={styles.search}
-          placeholderTextColor="#64748b"
+          placeholderTextColor={C.sub}
           autoCorrect={false}
           returnKeyType="search"
         />
@@ -163,23 +164,27 @@ const C = {
   bg: "#ffffff",
   text: "#0f172a",
   sub: "#64748b",
-  line: "#e5e7eb",
-  cardBg: "#f8fafc",
+  line: "#e6eaf0",
+  cardBg: "rgba(248, 250, 252, 0.92)",
   primary: "#2563eb",
+  blue50: "#eff6ff",
+  blue100: "#dbeafe",
 };
 
 /* ---------- Styles ---------- */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
 
+  /* Header */
   headerWrap: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  heading: { fontSize: 24, fontWeight: "800", color: C.text, marginBottom: 8 },
+  heading: { fontSize: 24, fontWeight: "800", color: C.text, marginBottom: 10 },
 
+  /* Search */
   searchRow: { position: "relative" },
   search: {
     backgroundColor: C.cardBg,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    borderWidth: 1,
     borderColor: C.line,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -188,26 +193,27 @@ const styles = StyleSheet.create({
   },
   clearBtn: {
     position: "absolute",
-    right: 8,
-    top: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    right: 6,
+    top: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#e2e8f0",
   },
   clearTxt: { color: C.text, fontSize: 18, fontWeight: "700", lineHeight: 18 },
 
+  /* Card */
   card: {
     marginHorizontal: 16,
     marginBottom: 12,
     padding: 14,
-    backgroundColor: C.cardBg,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
     borderColor: C.line,
-    // subtle shadow
+    // subtle elevated look
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -216,21 +222,26 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   cardTitle: { fontSize: 16, fontWeight: "800", color: C.text },
+
   metaRow: {
     marginTop: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
+
   pill: {
     fontSize: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: C.blue50,
     color: C.text,
+    borderWidth: 1,
+    borderColor: C.blue100,
     overflow: "hidden",
   },
+
   chev: { fontSize: 24, color: "#94a3b8", marginLeft: 8 },
 
   cardAccent: {
@@ -238,12 +249,13 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    width: 4,
+    width: 5,
     backgroundColor: C.primary,
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
   },
 
+  /* States */
   centerWrap: { alignItems: "center", justifyContent: "center", padding: 24 },
   error: { color: "#ef4444", fontSize: 16, textAlign: "center", marginBottom: 12 },
   retryBtn: {

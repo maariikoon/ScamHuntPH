@@ -1,5 +1,5 @@
 // app/(tabs)/report.tsx
-import { JSX, useCallback, useState, useMemo } from "react";
+import React, { JSX, useCallback, useEffect, useMemo, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -20,20 +20,20 @@ import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
 import { auth } from "../../src/firebase";
-//import ShareMenu from "react-native-share-menu";
-import { useEffect } from "react";
 
 const API_BASE_URL = "https://reports-bcvrqgcc6a-as.a.run.app";
 
 /* -------------------- Theme -------------------- */
 const C = {
   bg: "#ffffff",
-  cardBg: "#f8fafc",
+  cardBg: "rgba(248, 250, 252, 0.92)",
   text: "#0f172a",
   sub: "#64748b",
-  line: "#e5e7eb",
+  line: "#e6eaf0",
   primary: "#2563eb",
-  primaryDark: "#1e40af",
+  primaryDark: "#1d4ed8",
+  blue50: "#eff6ff",
+  blue100: "#dbeafe",
   danger: "#ef4444",
 };
 
@@ -47,7 +47,6 @@ export default function Report(): JSX.Element {
 
   // Clipboard
   const [clipText, setClipText] = useState<string>("");
-
 
   useFocusEffect(
     useCallback(() => {
@@ -72,7 +71,7 @@ export default function Report(): JSX.Element {
     }, [])
   );
 
-  // 🔹 Pick an image
+  // Pick an image
   const pickImage = async (): Promise<void> => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -83,21 +82,17 @@ export default function Report(): JSX.Element {
     }
   };
 
-    // ✅ Only read global.sharedText once — remove all ShareMenu calls
+  // Only read global.sharedText once
   useEffect(() => {
-    if (global.sharedText) {
-      const txt = global.sharedText.trim();   // ✅ take the text from the share
-      setMessage(txt);                        // ✅ put it in your text box
-      global.sharedText = null;               // 🧹 clear it after using
-
-      // 👇 Optional: Just for user feedback
+    if ((global as any).sharedText) {
+      const txt = ((global as any).sharedText as string).trim();
+      setMessage(txt);
+      (global as any).sharedText = null;
       setTimeout(() => {
         Alert.alert("📩 Message received", "Scam message loaded from share.");
-      }, 500);
+      }, 400);
     }
   }, []);
-
-
 
   // API helpers
   async function createReport(token: string, msg: string, cat: string, reg: string): Promise<string> {
@@ -125,12 +120,11 @@ export default function Report(): JSX.Element {
   async function uploadWithSignedUrl(uri: string, uploadUrl: string) {
     const resp = await fetch(uri);
     const blob = await resp.blob();
-    const contentType = blob.type || "application/octet-stream";
-
+    const contentType = (blob as any).type || "application/octet-stream";
     const put = await fetch(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": contentType },
-      body: blob,
+      body: blob as any,
     });
     if (!put.ok) {
       const errText = await put.text();
@@ -150,7 +144,7 @@ export default function Report(): JSX.Element {
 
   const canSubmit = useMemo(() => message.trim().length > 0 && !loading, [message, loading]);
 
-  // 🔹 Submit flow with preview & thank you
+  // Submit flow
   const handleSubmit = async (): Promise<void> => {
     const user = auth.currentUser;
     if (!user) return Alert.alert("Error", "You must be logged in");
@@ -171,19 +165,16 @@ export default function Report(): JSX.Element {
             try {
               const token = await user.getIdToken();
               const reportId = await createReport(token, message.trim(), category, region);
-
               if (image) {
                 const filename = "screenshot.jpg";
                 const { uploadUrl, readUrl } = await getSignedUrl(token, reportId, filename);
                 await uploadWithSignedUrl(image, uploadUrl);
                 await addEvidence(token, reportId, readUrl);
               }
-
               Alert.alert(
                 "✅ Report Submitted",
                 "Thank you for submitting a report. Your contribution helps raise awareness and protect others. Our team will review and verify the details you provided."
               );
-
               setMessage("");
               setImage(null);
             } catch (e: any) {
@@ -206,160 +197,212 @@ export default function Report(): JSX.Element {
 
   const clearMessage = () => setMessage("");
 
+  /* -------------------- UI -------------------- */
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Report a Scam</Text>
-
-        {/* New description */}
-        <Text style={styles.description}>
-          Help us build awareness by sharing scam messages you encounter. If you’ve received an SMS that seems suspicious, report it here. Your submission will be added to our database to support scam education, awareness, and future research.
+    <SafeAreaView style={S.container}>
+      <ScrollView contentContainerStyle={S.scroll} keyboardShouldPersistTaps="handled">
+        {/* Header */}
+        <View style={S.headerRow}>
+          <View style={S.headerIcon}>
+            <Ionicons name="shield-checkmark-outline" size={20} color={C.primary} />
+          </View>
+          <Text style={S.h1}>Report a Scam</Text>
+        </View>
+        <Text style={S.desc}>
+          Help us build awareness by sharing scam messages you encounter. If you’ve received an SMS that seems suspicious,
+          report it here. Your submission will support scam education, awareness, and research.
         </Text>
 
-        {/* Clipboard prompt chip */}
+        {/* Clipboard chip */}
         {clipText && message.trim().length === 0 && (
-          <Pressable onPress={pasteFromClipboard} style={({ pressed }) => [styles.clipChip, pressed && { opacity: 0.7 }]}>
+          <Pressable onPress={pasteFromClipboard} style={({ pressed }) => [S.chip, pressed && { opacity: 0.7 }]}>
             <Ionicons name="clipboard-outline" size={16} color={C.primaryDark} />
-            <Text numberOfLines={1} style={styles.clipChipText}>
-              Paste from clipboard
-            </Text>
+            <Text numberOfLines={1} style={S.chipText}>Paste from clipboard</Text>
           </Pressable>
         )}
 
-        {/* Message input with actions */}
-        <View style={styles.inputWrap}>
-          <TextInput
-            style={styles.input}
-            placeholder="Paste scam message here..."
-            multiline
-            value={message}
-            onChangeText={setMessage}
-            textAlignVertical="top"
-            autoCorrect={false}
-          />
-          <View style={styles.inputActions}>
-            <Pressable onPress={pasteFromClipboard} style={({ pressed }) => [styles.inputBtn, pressed && { opacity: 0.7 }]}>
-              <Ionicons name="clipboard-outline" size={16} color={C.primary} />
-              <Text style={styles.inputBtnText}>Paste</Text>
-            </Pressable>
-            {message.length > 0 && (
-              <Pressable onPress={clearMessage} style={({ pressed }) => [styles.inputBtn, pressed && { opacity: 0.7 }]}>
-                <Ionicons name="close-circle-outline" size={16} color={C.sub} />
-                <Text style={styles.inputBtnText}>Clear</Text>
-              </Pressable>
-            )}
+        {/* Message */}
+        <View style={S.card}>
+          <View style={S.cardHead}>
+            <View style={S.cardHeadIcon}><Ionicons name="chatbox-ellipses-outline" size={16} color={C.primary} /></View>
+            <Text style={S.cardTitle}>Scam Message</Text>
           </View>
-          <Text style={styles.counter}>{message.length}</Text>
+
+          <View style={S.inputWrap}>
+            <TextInput
+              style={S.input}
+              placeholder="Paste scam message here..."
+              multiline
+              value={message}
+              onChangeText={setMessage}
+              textAlignVertical="top"
+              autoCorrect={false}
+              placeholderTextColor={C.sub}
+            />
+            <View style={S.inputActions}>
+              <Pressable onPress={pasteFromClipboard} style={({ pressed }) => [S.inputBtn, pressed && { opacity: 0.7 }]}>
+                <Ionicons name="clipboard-outline" size={16} color={C.primary} />
+                <Text style={S.inputBtnText}>Paste</Text>
+              </Pressable>
+              {message.length > 0 && (
+                <Pressable onPress={clearMessage} style={({ pressed }) => [S.inputBtn, pressed && { opacity: 0.7 }]}>
+                  <Ionicons name="close-circle-outline" size={16} color={C.sub} />
+                  <Text style={S.inputBtnText}>Clear</Text>
+                </Pressable>
+              )}
+            </View>
+            <Text style={S.counter}>{message.length}</Text>
+          </View>
         </View>
 
         {/* Category */}
-        <Text style={styles.label}>Select Category</Text>
-        <View style={styles.selectWrap}>
-          <Picker selectedValue={category} onValueChange={setCategory} style={styles.picker}>
-            <Picker.Item label="Phishing/Smishing" value="Phishing/Smishing" />
-            <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
-            <Picker.Item label="Fake Job" value="Fake Job" />
-            <Picker.Item label="Loan Scam" value="Loan Scam" />
-            <Picker.Item label="Investment Scam" value="Investment Scam" />
-            <Picker.Item label="Gcash Scam" value="Gcash Scam" />
-            <Picker.Item label="Identity theft" value="Identity theft" />
-            <Picker.Item label="Lottery Scams" value="Lottery Scams" />
-            <Picker.Item label="Others" value="Others" />
-          </Picker>
-          <Ionicons name="chevron-down" size={18} color={C.sub} style={styles.selectIcon} />
+        <View style={S.card}>
+          <View style={S.cardHead}>
+            <View style={S.cardHeadIcon}><Ionicons name="list-outline" size={16} color={C.primary} /></View>
+            <Text style={S.cardTitle}>Category</Text>
+          </View>
+          <View style={S.selectWrap}>
+            <Picker selectedValue={category} onValueChange={setCategory} style={S.picker}>
+              <Picker.Item label="Phishing/Smishing" value="Phishing/Smishing" />
+              <Picker.Item label="Delivery Fraud" value="Delivery Fraud" />
+              <Picker.Item label="Fake Job" value="Fake Job" />
+              <Picker.Item label="Loan Scam" value="Loan Scam" />
+              <Picker.Item label="Investment Scam" value="Investment Scam" />
+              <Picker.Item label="Gcash Scam" value="Gcash Scam" />
+              <Picker.Item label="Identity theft" value="Identity theft" />
+              <Picker.Item label="Lottery Scams" value="Lottery Scams" />
+              <Picker.Item label="Others" value="Others" />
+            </Picker>
+            <Ionicons name="chevron-down" size={18} color={C.sub} style={S.selectIcon} />
+          </View>
         </View>
 
         {/* Region */}
-        <Text style={styles.label}>Select Region</Text>
-        <View style={styles.selectWrap}>
-          <Picker selectedValue={region} onValueChange={setRegion} style={styles.picker}>
-            <Picker.Item label="NCR – National Capital Region" value="NCR" />
-            <Picker.Item label="Region I – Ilocos Region" value="Region I" />
-            <Picker.Item label="Region II – Cagayan Valley" value="Region II" />
-            <Picker.Item label="Region III – Central Luzon" value="Region III" />
-            <Picker.Item label="Region IV-A – CALABARZON" value="Region IV-A" />
-            <Picker.Item label="Region IV-B – MIMAROPA" value="Region IV-B" />
-            <Picker.Item label="Region V – Bicol Region" value="Region V" />
-            <Picker.Item label="Region VI – Western Visayas" value="Region VI" />
-            <Picker.Item label="Region VII – Central Visayas" value="Region VII" />
-            <Picker.Item label="Region VIII – Eastern Visayas" value="Region VIII" />
-            <Picker.Item label="Region IX – Zamboanga Peninsula" value="Region IX" />
-            <Picker.Item label="Region X – Northern Mindanao" value="Region X" />
-            <Picker.Item label="Region XI – Davao Region" value="Region XI" />
-            <Picker.Item label="Region XII – SOCCSKSARGEN" value="Region XII" />
-            <Picker.Item label="Region XIII – Caraga" value="Region XIII" />
-            <Picker.Item label="CAR – Cordillera Administrative Region" value="CAR" />
-            <Picker.Item label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao" value="BARMM" />
-          </Picker>
-          <Ionicons name="chevron-down" size={18} color={C.sub} style={styles.selectIcon} />
+        <View style={S.card}>
+          <View style={S.cardHead}>
+            <View style={S.cardHeadIcon}><Ionicons name="location-outline" size={16} color={C.primary} /></View>
+            <Text style={S.cardTitle}>Region</Text>
+          </View>
+          <View style={S.selectWrap}>
+            <Picker selectedValue={region} onValueChange={setRegion} style={S.picker}>
+              <Picker.Item label="NCR – National Capital Region" value="NCR" />
+              <Picker.Item label="Region I – Ilocos Region" value="Region I" />
+              <Picker.Item label="Region II – Cagayan Valley" value="Region II" />
+              <Picker.Item label="Region III – Central Luzon" value="Region III" />
+              <Picker.Item label="Region IV-A – CALABARZON" value="Region IV-A" />
+              <Picker.Item label="Region IV-B – MIMAROPA" value="Region IV-B" />
+              <Picker.Item label="Region V – Bicol Region" value="Region V" />
+              <Picker.Item label="Region VI – Western Visayas" value="Region VI" />
+              <Picker.Item label="Region VII – Central Visayas" value="Region VII" />
+              <Picker.Item label="Region VIII – Eastern Visayas" value="Region VIII" />
+              <Picker.Item label="Region IX – Zamboanga Peninsula" value="Region IX" />
+              <Picker.Item label="Region X – Northern Mindanao" value="Region X" />
+              <Picker.Item label="Region XI – Davao Region" value="Region XI" />
+              <Picker.Item label="Region XII – SOCCSKSARGEN" value="Region XII" />
+              <Picker.Item label="Region XIII – Caraga" value="Region XIII" />
+              <Picker.Item label="CAR – Cordillera Administrative Region" value="CAR" />
+              <Picker.Item label="BARMM – Bangsamoro Autonomous Region in Muslim Mindanao" value="BARMM" />
+            </Picker>
+            <Ionicons name="chevron-down" size={18} color={C.sub} style={S.selectIcon} />
+          </View>
         </View>
 
         {/* Evidence */}
-        {image ? (
-          <View style={styles.imagePreviewContainer}>
-            <Image source={{ uri: image }} style={styles.imagePreview} />
-            <TouchableOpacity style={styles.removeImageButton} onPress={() => setImage(null)}>
-              <Ionicons name="close" size={18} color="#fff" />
-            </TouchableOpacity>
+        <View style={S.card}>
+          <View style={S.cardHead}>
+            <View style={S.cardHeadIcon}><Ionicons name="images-outline" size={16} color={C.primary} /></View>
+            <Text style={S.cardTitle}>Evidence (optional)</Text>
           </View>
-        ) : (
-          <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-            <Ionicons name="image-outline" size={18} color={C.primary} />
-            <Text style={styles.imageButtonText}>Attach Screenshot</Text>
-          </TouchableOpacity>
-        )}
+
+          {image ? (
+            <View style={S.imagePreviewContainer}>
+              <Image source={{ uri: image }} style={S.imagePreview} />
+              <TouchableOpacity style={S.removeImageButton} onPress={() => setImage(null)}>
+                <Ionicons name="close" size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={S.imageButton} onPress={pickImage}>
+              <Ionicons name="image-outline" size={18} color={C.primary} />
+              <Text style={S.imageButtonText}>Attach Screenshot</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </ScrollView>
 
-      {/* fixed submit button */}
+      {/* Fixed submit button */}
       <TouchableOpacity
-        style={[styles.fixedButton, !canSubmit && { opacity: 0.6 }]}
+        style={[S.fixedButton, !canSubmit && { opacity: 0.6 }]}
         onPress={handleSubmit}
         disabled={!canSubmit}
+        activeOpacity={0.9}
       >
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Submit Report</Text>}
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={S.buttonText}>Submit Report</Text>}
       </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 /* -------------------- Styles -------------------- */
-const styles = StyleSheet.create({
+const S = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
-  scrollContainer: { padding: 20, paddingBottom: 110 },
+  scroll: { padding: 16, paddingBottom: 120 },
 
-  title: { fontSize: 28, fontWeight: "800", color: C.text, marginBottom: 8 },
-
-  description: {
-    fontSize: 14,
-    color: C.sub,
-    marginBottom: 16,
-    textAlign: "left",
+  /* Header */
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 },
+  headerIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: C.blue50, alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: C.blue100,
   },
+  h1: { fontSize: 24, fontWeight: "800", color: C.text },
+  desc: { fontSize: 14, color: C.sub, marginBottom: 12 },
 
-  /* Clipboard chip */
-  clipChip: {
+  /* Chip */
+  chip: {
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#e0e7ff",
+    backgroundColor: C.blue100,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
     marginBottom: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#c7d2fe",
+    borderWidth: 1,
+    borderColor: C.blue100,
   },
-  clipChipText: { color: C.primaryDark, fontWeight: "700" },
+  chipText: { color: C.primaryDark, fontWeight: "800" },
 
-  /* Input with accessories */
+  /* Card wrapper */
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.line,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: Platform.OS === "ios" ? 0.08 : 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  cardHead: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  cardHeadIcon: {
+    width: 26, height: 26, borderRadius: 8,
+    backgroundColor: C.blue50, alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: C.blue100,
+  },
+  cardTitle: { fontSize: 15, fontWeight: "800", color: C.text },
+
+  /* Input area */
   inputWrap: {
     backgroundColor: C.cardBg,
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: C.line,
     padding: 10,
-    marginBottom: 16,
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 6,
@@ -372,23 +415,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#eef2ff",
+    backgroundColor: C.blue50,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: C.blue100,
   },
-  inputBtnText: { color: C.primaryDark, fontWeight: "700" },
+  inputBtnText: { color: C.primaryDark, fontWeight: "800" },
   counter: { position: "absolute", right: 10, bottom: 8, fontSize: 12, color: C.sub },
 
-  label: { fontSize: 16, fontWeight: "800", color: C.text, marginTop: 4, marginBottom: 8 },
-
+  /* Selects */
   selectWrap: {
     position: "relative",
     backgroundColor: C.cardBg,
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: C.line,
-    marginBottom: 14,
+    marginTop: 4,
     overflow: "hidden",
   },
   selectIcon: {
@@ -405,14 +449,27 @@ const styles = StyleSheet.create({
       : { height: 50, paddingHorizontal: 6 }),
   },
 
-  imageButton: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 8 },
-  imageButtonText: { color: C.primary, fontSize: 16, fontWeight: "700" },
+  /* Evidence */
+  imageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignSelf: "flex-start",
+    backgroundColor: C.blue50,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.blue100,
+  },
+  imageButtonText: { color: C.primary, fontSize: 15, fontWeight: "800" },
 
   imagePreviewContainer: {
-    width: 220,
-    height: 220,
+    width: 240,
+    height: 240,
     borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: C.line,
     overflow: "hidden",
     marginTop: 6,
@@ -430,9 +487,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  /* Submit */
   fixedButton: {
     position: "absolute",
-    bottom: 8,
+    bottom: 10,
     left: 12,
     right: 12,
     backgroundColor: C.primary,

@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import RenderHTML, { MixedStyleRecord, RenderersProps } from "react-native-render-html";
 
+/* ---------- API ---------- */
 const API_BASE_URL = "https://lessons-bcvrqgcc6a-as.a.run.app";
 
 /* ---------- Types ---------- */
@@ -30,14 +31,16 @@ const C = {
   bg: "#ffffff",
   text: "#0f172a",
   sub: "#64748b",
-  line: "#e5e7eb",
-  cardBg: "#f8fafc",
+  line: "#e6eaf0",
+  cardBg: "rgba(248, 250, 252, 0.92)",
   primary: "#2563eb",
-  primaryDark: "#1e40af",
+  primaryDark: "#1d4ed8",
+  blue50: "#eff6ff",
+  blue100: "#dbeafe",
 };
 
 /* ---------- Utils ---------- */
-// strip shell tags/scripts/styles but keep body content
+// Strip outer shells and scripts/styles; keep inner body content
 function cleanHTML(raw: any): string {
   if (typeof raw !== "string") {
     try {
@@ -70,9 +73,7 @@ export default function LessonDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const { width } = useWindowDimensions();
 
-  // Inner card width: screen width - horizontal padding.
-  // Hard-cap at 360 so large infographics can’t overflow mid-size phones.
-  // If you want full width on larger phones, change to: const contentW = width - 32;
+  // Inner content width (keeps images/code neatly within card on mid-size phones)
   const contentW = Math.min(width - 32, 360);
 
   useEffect(() => {
@@ -85,10 +86,11 @@ export default function LessonDetailScreen() {
       try {
         const res = await fetch(`${API_BASE_URL}/${learnId}`);
         const data = await res.json();
-        if (data.ok && data.lesson?.published) {
+        if (data?.ok && data?.lesson?.published) {
           setLesson(data.lesson);
+          setError(null);
         } else {
-          setError(data.error || "Lesson not available.");
+          setError(data?.error || "Lesson not available.");
         }
       } catch {
         setError("Failed to load lesson.");
@@ -102,7 +104,7 @@ export default function LessonDetailScreen() {
   const cleaned = useMemo(() => cleanHTML(lesson?.content || ""), [lesson?.content]);
   const updated = lesson?.updatedAt ? fmtDate(lesson.updatedAt) : fmtDate(lesson?.createdAt);
 
-  // Typed tag styles (RN requires numeric sizes, not '%')
+  // Typed tag styles for RenderHTML
   const tagStyles: MixedStyleRecord = useMemo(
     () => ({
       h1: { fontSize: 24, fontWeight: "800", marginBottom: 12, color: C.text },
@@ -116,10 +118,10 @@ export default function LessonDetailScreen() {
       blockquote: {
         borderLeftWidth: 4,
         borderLeftColor: C.primary,
-        backgroundColor: "#eef2ff",
+        backgroundColor: C.blue50,
         paddingVertical: 8,
         paddingHorizontal: 12,
-        borderRadius: 8,
+        borderRadius: 10,
         marginVertical: 10,
         color: C.text,
       },
@@ -139,11 +141,10 @@ export default function LessonDetailScreen() {
         borderRadius: 10,
         overflow: "hidden",
       },
-      // 🔑 make images fit the card width
       img: {
         width: contentW,
         maxWidth: contentW,
-        borderRadius: 10,
+        borderRadius: 12,
       },
       hr: {
         borderBottomColor: C.line,
@@ -157,7 +158,6 @@ export default function LessonDetailScreen() {
     [contentW]
   );
 
-  // Typed renderers props
   const rProps: RenderersProps = {
     img: { enableExperimentalPercentWidth: true },
     a: {},
@@ -168,7 +168,10 @@ export default function LessonDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={S.safeArea}>
-        <ActivityIndicator size="large" color={C.primary} style={{ marginTop: 40 }} />
+        <View style={S.centerWrap}>
+          <ActivityIndicator size="large" color={C.primary} />
+          <Text style={[S.subtle, { marginTop: 10 }]}>Loading lesson…</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -177,6 +180,7 @@ export default function LessonDetailScreen() {
     return (
       <SafeAreaView style={S.safeArea}>
         <View style={S.centerWrap}>
+          <View style={S.emptyIcon} />
           <Text style={S.error}>{error}</Text>
         </View>
       </SafeAreaView>
@@ -187,6 +191,7 @@ export default function LessonDetailScreen() {
     return (
       <SafeAreaView style={S.safeArea}>
         <View style={S.centerWrap}>
+          <View style={S.emptyIcon} />
           <Text style={S.error}>Lesson not found.</Text>
         </View>
       </SafeAreaView>
@@ -197,11 +202,17 @@ export default function LessonDetailScreen() {
     <SafeAreaView style={S.safeArea}>
       <ScrollView contentContainerStyle={S.scrollContent}>
         {/* Header */}
-        <View style={S.header}>
-          <Text style={S.title}>{lesson.title}</Text>
-          <View style={S.metaRow}>
-            {lesson.category ? <Text style={S.pill}>{lesson.category}</Text> : <View />}
-            {updated && <Text style={S.timestamp}>Updated • {updated}</Text>}
+        <View style={S.headerCard}>
+          <View style={S.headerIcon}>
+            {/* simple book glyph using a block */}
+            <View style={S.headerGlyph} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={S.title}>{lesson.title}</Text>
+            <View style={S.metaRow}>
+              {lesson.category ? <Text style={S.pill}>{lesson.category}</Text> : <View />}
+              {updated && <Text style={S.timestamp}>Updated • {updated}</Text>}
+            </View>
           </View>
         </View>
 
@@ -212,6 +223,8 @@ export default function LessonDetailScreen() {
           </View>
         ) : (
           <View style={S.card}>
+            {/* left blue accent */}
+            <View style={S.cardAccent} />
             <RenderHTML
               contentWidth={contentW}
               source={{ html: cleaned }}
@@ -231,34 +244,80 @@ const S = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: C.bg },
   scrollContent: { padding: 16, paddingBottom: 24 },
 
-  header: { marginBottom: 12 },
-  title: { fontSize: 28, fontWeight: "800", color: C.text, marginBottom: 6 },
-  metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  /* Header card */
+  headerCard: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "flex-start",
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.line,
+    backgroundColor: "#fff",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: Platform.OS === "ios" ? 0.08 : 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  headerIcon: {
+    width: 42, height: 42, borderRadius: 12,
+    backgroundColor: C.blue50,
+    borderWidth: 1, borderColor: C.blue100,
+    alignItems: "center", justifyContent: "center",
+    marginTop: 2,
+  },
+  headerGlyph: {
+    width: 18, height: 18, borderRadius: 4, backgroundColor: C.primary,
+  },
+  title: { fontSize: 22, fontWeight: "800", color: C.text },
+  metaRow: { marginTop: 6, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   pill: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: C.blue50,
+    borderWidth: 1,
+    borderColor: C.blue100,
     color: C.text,
     overflow: "hidden",
     fontWeight: "700",
   },
   timestamp: { color: C.sub, fontSize: 12 },
 
+  /* Content card */
   card: {
-    backgroundColor: C.cardBg,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
+    position: "relative",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
     borderColor: C.line,
     padding: 16,
     shadowColor: "#000",
-    shadowOpacity: 0.06,
+    shadowOpacity: Platform.OS === "ios" ? 0.08 : 0.06,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
+  cardAccent: {
+    position: "absolute",
+    left: 0, top: 0, bottom: 0,
+    width: 5,
+    backgroundColor: C.primary,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
 
-  centerWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  /* States */
+  centerWrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 8 },
+  subtle: { color: C.sub, fontSize: 13 },
+  emptyIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: C.blue50,
+    borderWidth: 1, borderColor: C.blue100,
+    marginBottom: 6,
+  },
   error: { color: "#ef4444", fontSize: 16, textAlign: "center" },
   empty: { color: C.sub, fontSize: 16 },
 });

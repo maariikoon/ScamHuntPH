@@ -1,0 +1,124 @@
+{
+  "tabs": {
+    "home": "Home",
+    "learn": "Learn",
+    "report": "I-report",
+    "alerts": "Alerts",
+    "profile": "Profile",
+    "alertsUnread": "{{count}} unread alerts",
+    "openAlerts": "Open alerts",
+    "alertsHint": "Opens your notifications and alerts"
+  },
+
+  "reports": {
+    "title": "Public Reports",
+    "subtitle": "Community-submitted, team-verified messages.",
+    "filter": "Filter by Category",
+    "allCategories": "All Categories",
+    "timeRange": "Time Range",
+    "r7d": "7d",
+    "r30d": "30d",
+    "r90d": "90d",
+    "region": "Region",
+    "category": "Category",
+    "empty": "No reports found for this filter.",
+    "loadMore": "Load more",
+    "reported": "Reported",
+    "verified": "Verified",
+    "verificationRate": "Verification rate",
+    "badges": {
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    },
+    "labels": {
+      "category": "Category",
+      "location": "Location",
+      "time": "Time"
+    }
+  },
+
+  "notifications": {
+    "title": "Notifications",
+    "markAll": "Mark all as read",
+    "tabs": {
+      "all": "All",
+      "unread": "Unread",
+      "read": "Read"
+    },
+    "counts": {
+      "unread": "{{count}} unread"
+    },
+    "row": {
+      "approvedTitle": "Report Approved ✅",
+      "approvedMsg": "Your scam report was verified by an admin.",
+      "deniedTitle": "Report Denied ❌",
+      "deniedMsg": "Your scam report was denied by an admin.",
+      "markRead": "Mark read",
+      "marked": "Marked as read"
+    },
+    "empty": {
+      "all": "No notifications yet.",
+      "unread": "You're all caught up!",
+      "read": "No read notifications."
+    }
+  },
+
+  "alerts": {
+    "title": "Alerts",
+    "quickLinks": "Quick Links",
+    "unreadAlert": "You have {{count}} unread alerts — tap to view",
+    "yourReports": "Your Reports",
+    "yourReportsDesc": "View, track, and manage your submissions.",
+    "scamTrends": "Scam Trends",
+    "scamTrendsDesc": "See what's spiking across regions and categories."
+  },
+
+  "trends": {
+    "title": "Scam Trends",
+    "subtitle": "See what’s spiking across regions and categories.",
+    "timeRange": "Time Range",
+    "r7d": "7d",
+    "r30d": "30d",
+    "r90d": "90d",
+    "sections": {
+      "overview": "Overview",
+      "byCategory": "Top Categories",
+      "byRegion": "Top Regions",
+      "volume": "Report Volume",
+      "recentSpikes": "Recent Spikes"
+    },
+    "metrics": {
+      "totalReports": "Total Reports",
+      "verified": "Verified",
+      "verificationRate": "Verification Rate",
+      "avgPerDay": "Avg per day"
+    },
+    "empty": "No trend data for this range."
+  },
+
+  "profile": {
+    "title": "Profile",
+    "yourImpact": "Your Impact",
+    "reported": "Reported",
+    "verified": "Verified",
+    "verificationRate": "Verification rate",
+    "settings": "Settings",
+    "language": "Language",
+    "languageNote": "The app language will update automatically.",
+    "accountSettings": "Account Settings",
+    "privacySecurity": "Privacy and Security",
+    "notifications": "Notification Preferences",
+    "myReports": "My Reports",
+    "signOut": "Sign Out"
+  },
+
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "saving": "Saving...",
+    "clear": "Clear",
+    "error": "Error"
+  }
+}
