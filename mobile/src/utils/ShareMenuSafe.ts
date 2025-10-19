@@ -1,33 +1,37 @@
-import { NativeModules, Platform } from "react-native";
+// src/utils/ShareMenuSafe.ts
+import { Platform, DeviceEventEmitter, NativeModules } from "react-native";
 
-declare const global: {
-  ExpoGo?: boolean;
-} & typeof globalThis;
+const { IntentModule } = NativeModules;
 
-let ShareMenu: any = null;
-
-if (typeof global.ExpoGo === "undefined" && NativeModules.ShareMenu) {
-  ShareMenu = NativeModules.ShareMenu;
+// Listen for warm-state events from native
+export function addShareListener(onShare: (text: string) => void) {
+  if (Platform.OS !== "android") {
+    return { remove() {} };
+  }
+  // Subscribe to DeviceEventEmitter because native emits via RCTDeviceEventEmitter
+  const sub = DeviceEventEmitter.addListener("ShareText", (payload: any) => {
+    // payload can be a string, or { text } or { data }
+    const txt =
+      typeof payload === "string"
+        ? payload
+        : payload?.text ?? payload?.data ?? "";
+    if (typeof txt === "string" && txt.trim().length > 0) {
+      onShare(txt.trim());
+    }
+  });
+  console.log("🛰️ Listening for native ShareText events…");
+  return sub; // keep this subscription alive
 }
 
-export const getInitialShare = async () => {
-  if (!ShareMenu?.getInitialShare) {
-    console.log("ℹ️ ShareMenu not available (Expo Go or not built yet)");
-    return null;
-  }
+// Get the initial text on cold start (native module returns lastSharedText / pending flush)
+export async function getInitialShare(): Promise<string | null> {
+  if (Platform.OS !== "android") return null;
   try {
-    const data = await ShareMenu.getInitialShare();
-    return data;
-  } catch (err) {
-    console.warn("Error fetching shared data:", err);
+    const txt = await IntentModule?.getInitialText?.();
+    console.log("📩 getInitialShare (intent extras):", txt ?? null);
+    return typeof txt === "string" && txt.trim() ? txt.trim() : null;
+  } catch (e) {
+    console.warn("getInitialShare error", e);
     return null;
   }
-};
-
-export const addShareListener = (callback: (data: any) => void) => {
-  if (!ShareMenu?.addNewShareListener) {
-    console.log("ℹ️ ShareMenu listener skipped (Expo Go)");
-    return;
-  }
-  ShareMenu.addNewShareListener(callback);
-};
+}

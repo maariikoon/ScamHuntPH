@@ -3,7 +3,6 @@ import { Stack, usePathname, useRouter } from "expo-router";
 import "../i18n"; // side-effect import (resources, detectors, etc.)
 import { initI18n } from "../i18n";
 import { NotificationsProvider } from "../src/context/NotificationsContext";
-//import ShareMenu from "react-native-share-menu";
 import { getInitialShare, addShareListener } from "../src/utils/ShareMenuSafe";
 
 declare global {
@@ -43,36 +42,52 @@ export default function RootLayout() {
         return;
       }
 
-      if (busyRef.current || lastTxtRef.current === txt) {
-        console.log("⚠️ Duplicate share ignored");
+      if (busyRef.current) {
+        console.log("⚠️ Busy, ignoring");
         return;
       }
 
       busyRef.current = true;
-      lastTxtRef.current = txt;
+      (global as any).__handledSharedText = txt;
       global.sharedText = txt;
       console.log("✅ Set global.sharedText:", txt);
 
-      setTimeout(() => {
-        if (pathname !== "/report") {
-          console.log("➡️ Navigating to /report");
-          router.replace("/report");
+
+      // ✅ navigate to the proper tab route
+      const waitForRouter = async () => {
+        let tries = 0;
+        while (!router || !router.push) {
+          await new Promise((r) => setTimeout(r, 200));
+          tries++;
+          if (tries > 20) return; // give up after 4s
         }
+
+        if (!pathname.includes("report")) {
+          console.log("➡️ Navigating to Report tab…");
+          try {
+            router.push("/(tabs)/report");
+          } catch (e) {
+            console.warn("⚠️ Navigation failed:", e);
+          }
+        }
+
         setTimeout(() => {
           busyRef.current = false;
           console.log("🧹 Reset busyRef");
         }, 400);
-      }, 500);
+      };
+
+      waitForRouter();
     }
 
-    // ✅ Cold-start share check using safe wrapper
+    // ✅ Cold-start share check
     setTimeout(async () => {
       const data = await getInitialShare();
       console.log("📩 getInitialShare returned:", data);
       if (data) handleShare(data);
-    }, 800);
+    }, 1200);
 
-    // ✅ Live share listener using safe wrapper
+    // ✅ Optional warm listener
     addShareListener((share) => {
       console.log("📥 addShareListener fired:", share);
       handleShare(share);
@@ -82,7 +97,7 @@ export default function RootLayout() {
       mounted = false;
       console.log("🧹 ShareMenu listener cleanup");
     };
-  }, [pathname, router]);
+    }, []);
 
   return (
     <NotificationsProvider>

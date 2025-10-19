@@ -12,6 +12,7 @@ import com.facebook.react.ReactHost
 import com.facebook.react.common.ReleaseLevel
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactNativeHost
+import com.facebook.react.bridge.ReactContext   // ✅ add this
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
@@ -25,6 +26,7 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
+              add(IntentPackage())
             }
 
           override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"
@@ -45,7 +47,19 @@ class MainApplication : Application(), ReactApplication {
     } catch (e: IllegalArgumentException) {
       ReleaseLevel.STABLE
     }
+
     loadReactNative(this)
+
+    // ✅ Flush any pending Share text the moment ReactContext is ready
+    reactNativeHost.reactInstanceManager.addReactInstanceEventListener(
+      object : com.facebook.react.ReactInstanceEventListener {
+        override fun onReactContextInitialized(context: com.facebook.react.bridge.ReactContext) {
+          android.util.Log.d("SHAREMENU_FIX", "🌍 ReactContext ready (global listener), flushing pending share if any…")
+          ShareMenuActivity.maybeSendPendingEvent(context)
+        }
+      }
+    )
+
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
   }
 
