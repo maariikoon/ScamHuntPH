@@ -47,6 +47,7 @@ export default function RootLayout() {
         await initI18n();
         const current = (i18n.language || "en").toLowerCase();
         setLang(current.startsWith("fil") || current.startsWith("tl") ? "fil" : "en");
+        console.log("[i18n ready]", i18n.language, i18n.t("tabs.home"));
       } catch (e) {
         warn("[i18n] init failed:", e);
       } finally {

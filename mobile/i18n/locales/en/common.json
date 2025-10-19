@@ -2,13 +2,36 @@
   "tabs": {
     "home": "Home",
     "learn": "Learn",
-    "report": "I-report",
+    "report": "Report",
     "alerts": "Alerts",
     "profile": "Profile",
     "alertsUnread": "{{count}} unread alerts",
     "openAlerts": "Open alerts",
     "alertsHint": "Opens your notifications and alerts"
   },
+
+  "home": {
+  "banner": {
+    "brand": "ScamHuntPH",
+    "tagline": "Awareness is Protection.\nReporting is Power.\nAlways Stay Protected."
+  },
+  "section": {
+    "thisWeek": "This Week",
+    "general": "General"
+  },
+  "stats": {
+    "trending": "Trending Scam Category",
+    "verified": "Your Verified Reports",
+    "today": "Your Reports Today",
+    "pending": "Your Pending Reports"
+  },
+  "actions": {
+    "report": "Report a Scam",
+    "learn": "Learn Scam",
+    "myReports": "My Reports",
+    "publicReports": "Public Reports"
+  }
+},
 
   "reports": {
     "title": "Public Reports",

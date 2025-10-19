@@ -10,6 +10,29 @@
     "alertsHint": "Binubuksan ang iyong mga notipikasyon at abiso"
   },
 
+  "home": {
+  "banner": {
+    "brand": "ScamHuntPH",
+    "tagline": "Ang Kaalaman ay Proteksyon.\nAng Pag-uulat ay Kapangyarihan.\nLaging Maging Ligtas."
+  },
+  "section": {
+    "thisWeek": "Ngayong Linggo",
+    "general": "Pangkalahatan"
+  },
+  "stats": {
+    "trending": "Pinaka-Usapang Uri ng Scam",
+    "verified": "Iyong mga Na-beripikang Ulat",
+    "today": "Iyong mga Ulat Ngayon",
+    "pending": "Iyong mga Naka-pending na Ulat"
+  },
+  "actions": {
+    "report": "Mag-ulat ng Scam",
+    "learn": "Matuto Tungkol sa Scam",
+    "myReports": "Aking mga Ulat",
+    "publicReports": "Mga Pampublikong Ulat"
+  }
+},
+
   "reports": {
     "title": "Pampublikong Ulat",
     "subtitle": "Mga mensaheng ipinasa ng komunidad at beripikado ng team.",
