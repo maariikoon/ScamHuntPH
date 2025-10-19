@@ -1,6 +1,8 @@
+//android/app/build.gradle
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -80,6 +82,13 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+
+// Disable KSP to avoid expo-updates compiler crash
+gradle.startParameter.excludedTaskNames += [
+  "kspDebugKotlin",
+  "kspReleaseKotlin"
+]
+
 
 android {
     ndkVersion rootProject.ext.ndkVersion
