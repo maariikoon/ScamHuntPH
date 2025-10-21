@@ -9,6 +9,7 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.facebook.react.ReactApplication
 
+
 class IntentHookModule(private val reactContext: ReactApplicationContext)
   : ReactContextBaseJavaModule(reactContext) {
 

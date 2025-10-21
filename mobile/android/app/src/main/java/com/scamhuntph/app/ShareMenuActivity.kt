@@ -15,7 +15,6 @@ class ShareMenuActivity : Activity() {
     var lastSharedText: String? = null
     private var pendingText: String? = null
 
-    // ✅ NEW: persist & consume from SharedPreferences
     private const val PREFS = "sharemenu"
     private const val KEY = "text"
 
@@ -46,7 +45,6 @@ class ShareMenuActivity : Activity() {
         context?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
           ?.emit("ShareText", it)
         pendingText = null
-        // We intentionally keep lastSharedText untouched here; consumePendingText() clears both.
       }
     }
   }
@@ -57,49 +55,19 @@ class ShareMenuActivity : Activity() {
     val text = intent.getStringExtra(Intent.EXTRA_TEXT)
     Log.d("SHAREMENU_FIX", "✅ ShareMenuActivity launched with text: $text")
 
+    // ✅ Store the text for later retrieval
     lastSharedText = text
     pendingText = text
     persistText(applicationContext, text)
 
-    val app = application as? ReactApplication
-    val reactInstanceManager = app?.reactNativeHost?.reactInstanceManager
-    val reactContext = reactInstanceManager?.currentReactContext
-
-    if (reactContext != null && reactContext.hasActiveCatalystInstance()) {
-      Log.d("SHAREMENU_FIX", "📡 React bridge already active — emit immediately")
-      maybeSendPendingEvent(reactContext)
-    } else {
-      Log.d("SHAREMENU_FIX", "🕓 Waiting for existing ReactContext to initialize")
-      reactInstanceManager?.addReactInstanceEventListener(
-        object : com.facebook.react.ReactInstanceEventListener {
-          override fun onReactContextInitialized(context: com.facebook.react.bridge.ReactContext) {
-            Log.d("SHAREMENU_FIX", "🔥 React bridge initialized, flushing pending share")
-            maybeSendPendingEvent(context)
-            reactInstanceManager.removeReactInstanceEventListener(this)
-        }
-      })
-
-      // 🧱 Only rebuild the bridge if it's truly null (cold start)
-      if (reactContext == null) {
-        Log.d("SHAREMENU_FIX", "🚀 No existing ReactContext found — creating React bridge in background")
-        reactInstanceManager?.createReactContextInBackground()
-      } else {
-        Log.d("SHAREMENU_FIX", "🕓 ReactContext exists but not yet active — will wait for listener callback")
-      }
-    }
-
-
-    // Bring main app to front
+    // ✅ Just launch MainActivity - let it handle everything
     val launch = Intent(this, MainActivity::class.java).apply {
-      addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+      flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
       putExtra(Intent.EXTRA_TEXT, text)
     }
     startActivity(launch)
-
-    // Delay finish until bridge is created or after 3s max
-    android.os.Handler(mainLooper).postDelayed({
-      Log.d("SHAREMENU_FIX", "⌛ Finishing ShareMenuActivity safely after waiting for React bridge")
-      finish()
-    }, 3000)
+    
+    // ✅ Close this activity immediately
+    finish()
   }
 }

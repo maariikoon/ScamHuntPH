@@ -67,47 +67,81 @@ export default function RootLayout() {
   }, []);
 
   const handleShare = useCallback((raw?: any) => {
+    console.log("🔍 handleShare called with raw:", raw);
     const txt0 = extractSharedText(raw);
+    console.log("🔍 Extracted text:", txt0);
     const txt = normalize(txt0);
-    if (!txt) return log("📭 No share text found, ignoring.");
-    if (busyRef.current || lastTxtRef.current === txt) return log("⚠️ Share ignored (busy/duplicate).");
+    console.log("🔍 Normalized text:", txt);
+    
+    if (!txt) return log("🔭 No share text found, ignoring.");
+    
+    if (lastTxtRef.current === txt && busyRef.current) {
+      console.log("⚠️ Duplicate share detected while busy, ignoring");
+      return log("⚠️ Share ignored (busy/duplicate).");
+    }
 
+    console.log("✅ Processing share...");
     busyRef.current = true;
     lastTxtRef.current = txt;
-    global.sharedText = txt;
 
     const go = () => {
-      if (pathname !== "/report") {
-        try { router.replace("/report"); } catch (e) { warn("Router replace failed:", e); }
+      console.log("🚀 About to navigate to /share-confirm with:", txt);
+      try { 
+        router.replace({
+          pathname: "/share-confirm",
+          params: { message: txt }
+        }); 
+        console.log("✅ Navigation completed");
+      } catch (e) { 
+        warn("Router navigation failed:", e); 
       }
-      const t2 = setTimeout(() => { busyRef.current = false; }, BUSY_RESET_MS);
+      const t2 = setTimeout(() => { 
+        busyRef.current = false; 
+        console.log("🔓 busyRef reset");
+      }, BUSY_RESET_MS);
       timersRef.current.push(t2);
     };
     const t1 = setTimeout(go, NAV_DELAY_MS);
     timersRef.current.push(t1);
-  }, [pathname, router]);
+  }, [router]);
 
   useEffect(() => {
     if (!ready) return;
     let mounted = true;
-    const t = setTimeout(async () => {
+    
+    const checkInitial = async () => {
       if (!mounted) return;
       try {
+        console.log("🔍 Checking for initial share...");
         const initial = await getInitialShare();
-        if (initial) handleShare(initial);
-      } catch (e) { warn("getInitialShare failed:", e); }
-    }, COLD_START_DELAY_MS);
-    timersRef.current.push(t);
+        console.log("🔍 getInitialShare returned:", initial);
+        if (initial && mounted) {
+          console.log("✅ Found initial share, calling handleShare");
+          handleShare(initial);
+        }
+      } catch (e) { 
+        warn("getInitialShare failed:", e); 
+      }
+    };
 
-    let unsubscribe: (() => void) | undefined;
-    try {
-      addShareListener((share: any) => { if (mounted) handleShare(share); });
-      unsubscribe = undefined;
-    } catch (e) { warn("addShareListener failed:", e); }
+    // Check immediately
+    checkInitial();
+    
+    // Also check periodically in case we missed it
+    const interval = setInterval(() => {
+      if (mounted) checkInitial();
+    }, 1000);
+    
+    console.log("🛰️ Setting up share listener...");
+    const subscription = addShareListener((share: any) => { 
+      console.log("📨 Share listener triggered with:", share);
+      if (mounted) handleShare(share); 
+    });
 
     return () => {
       mounted = false;
-      if (typeof unsubscribe === "function") unsubscribe();
+      clearInterval(interval);
+      if (subscription?.remove) subscription.remove();
       timersRef.current.forEach(clearTimeout);
       timersRef.current = [];
     };

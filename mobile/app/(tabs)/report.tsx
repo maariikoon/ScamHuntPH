@@ -82,17 +82,6 @@ export default function Report(): JSX.Element {
     }
   };
 
-  // Only read global.sharedText once
-  useEffect(() => {
-    if ((global as any).sharedText) {
-      const txt = ((global as any).sharedText as string).trim();
-      setMessage(txt);
-      (global as any).sharedText = null;
-      setTimeout(() => {
-        Alert.alert("📩 Message received", "Scam message loaded from share.");
-      }, 400);
-    }
-  }, []);
 
   // API helpers
   async function createReport(token: string, msg: string, cat: string, reg: string): Promise<string> {

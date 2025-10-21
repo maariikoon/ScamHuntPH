@@ -30,7 +30,7 @@
         <data android:scheme="exp+scamhuntph-app"/>
       </intent-filter>
     </activity>
-    <activity android:name="com.scamhuntph.app.ShareMenuActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/Theme.AppCompat.Light.NoActionBar" android:taskAffinity="">
+    <activity android:name="com.scamhuntph.app.ShareMenuActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/Theme.AppCompat.Light.NoActionBar" >
       <intent-filter>
         <action android:name="android.intent.action.SEND"/>
         <category android:name="android.intent.category.DEFAULT"/>

@@ -18,7 +18,7 @@ class MainActivity : ReactActivity() {
     // @generated begin expo-splashscreen - expo prebuild (DO NOT MODIFY) sync-f3ff59a738c56c9a6119210cb55f0b613eb8b6af
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
-    super.onCreate(null)
+    super.onCreate(savedInstanceState)
 
     // ❌ removed: this could fire before the JS bridge exists
     // ShareMenuActivity.maybeSendPendingEvent(reactNativeHost.reactInstanceManager.currentReactContext)
@@ -26,32 +26,39 @@ class MainActivity : ReactActivity() {
 
   @Suppress("DEPRECATION")
   override fun onNewIntent(intent: Intent) {
-    super.onNewIntent(intent)
-    android.util.Log.d("SHAREMENU_FIX", "🛰️ onNewIntent() received EXTRA_TEXT=" + intent.getStringExtra(Intent.EXTRA_TEXT))
+      super.onNewIntent(intent)
+      setIntent(intent) // ✅ Update the intent
+      
+      val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+      android.util.Log.d("SHAREMENU_FIX", "🛰️ onNewIntent() received EXTRA_TEXT=$text")
 
-    val instanceManager = reactNativeHost.reactInstanceManager
-    val context = instanceManager.currentReactContext
-
-    var hook = context?.getNativeModule(IntentHookModule::class.java)
-
-    if (hook == null) {
-      android.util.Log.d("SHAREMENU_FIX", "⚠️ IntentHookModule not in current context, trying from instanceManager")
-      val packages = instanceManager.packages
-      for (pkg in packages) {
-        if (pkg is IntentPackage) {
-          android.util.Log.d("SHAREMENU_FIX", "✅ Found IntentPackage, creating new IntentHookModule manually")
-          hook = IntentHookModule(instanceManager.currentReactContext as com.facebook.react.bridge.ReactApplicationContext)
-          break
-        }
+      // ✅ Always persist the text
+      if (text != null) {
+          ShareMenuActivity.persistText(applicationContext, text)
+          ShareMenuActivity.lastSharedText = text
+          android.util.Log.d("SHAREMENU_FIX", "💾 Persisted share text: $text")
       }
-    }
 
-    if (hook == null) {
-      android.util.Log.d("SHAREMENU_FIX", "❌ Still no IntentHookModule instance; skipping handleIntent()")
-    } else {
-      android.util.Log.d("SHAREMENU_FIX", "✅ Invoking IntentHookModule.handleIntent() …")
-      hook.handleIntent(intent)
-    }
+      val instanceManager = reactNativeHost.reactInstanceManager
+      val context = instanceManager.currentReactContext
+
+      // ✅ If React isn't ready, just persist and let JS pick it up
+      if (context == null || !context.hasActiveCatalystInstance()) {
+          android.util.Log.d("SHAREMENU_FIX", "⚠️ ReactContext not ready, will be picked up by JS later")
+          return
+      }
+
+      // ✅ Try to emit the event if React is ready
+      try {
+          val appContext = context as? com.facebook.react.bridge.ReactApplicationContext
+          if (appContext != null && text != null) {
+              android.util.Log.d("SHAREMENU_FIX", "📤 Emitting ShareText event directly")
+              context.getJSModule(com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                  .emit("ShareText", text)
+          }
+      } catch (e: Exception) {
+          android.util.Log.e("SHAREMENU_FIX", "❌ Failed to emit event: ${e.message}")
+      }
   }
 
   override fun getMainComponentName(): String = "main"
@@ -67,13 +74,4 @@ class MainActivity : ReactActivity() {
           ){})
   }
 
-  override fun invokeDefaultOnBackPressed() {
-      if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
-          if (!moveTaskToBack(false)) {
-              super.invokeDefaultOnBackPressed()
-          }
-          return
-      }
-      super.invokeDefaultOnBackPressed()
-  }
 }
