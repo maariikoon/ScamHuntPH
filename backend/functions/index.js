@@ -21,11 +21,12 @@ if (!admin.apps.length) {
 
 // ===== Import standalone route apps =====
 const lessons = require("./routes/lessons");     // exports an express app
-const reports = require("./routes/reports");     // exports an express app
-const analytics = require("./routes/analytics"); // exports an express app
+const reports = require("./routes/reports");     
+const analytics = require("./routes/analytics"); 
 const notifications = require("./routes/notifications");
 const users = require("./routes/users");
 const publicreports = require("./routes/publicreports");
+const logaction = require("./routes/logaction");
 
 // ------------------------------------------------------------------
 // One consolidated API surface (recommended)
@@ -49,6 +50,7 @@ api.use("/lessons", lessons);
 api.use("/notifications", notifications);
 api.use("/admin/users", users);
 api.use("/publicreports", publicreports);
+api.use("/logaction", logaction);
 
 // JSON 404 (helps catch wrong paths/URLs from the frontend)
 api.use((req, res) => {
@@ -67,6 +69,7 @@ exports.lessons  = onRequest(lessons);
 exports.notifications = onRequest(notifications);
 exports.users = onRequest(users);
 exports.publicreports = onRequest(publicreports);
+exports.logaction = onRequest(logaction);
 
 // Dedicated health endpoint (optional)
 exports.health = onRequest((req, res) => {
