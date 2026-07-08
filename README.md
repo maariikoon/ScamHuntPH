@@ -114,7 +114,7 @@ npm install -g expo-cli
 Clone the repository.
 
 ```bash
-git clone <repository-url>
+git clone <[repository-url](https://github.com/maariikoon/ScamHuntPH.git)>
 ```
 
 Navigate to the project directory.
@@ -277,12 +277,12 @@ https://docs.google.com/document/d/1h-vwe-UXwpH-b499EOl7RNbF7UWZMwUDCkvk-kZs7bM/
 ---
 
 # Contributors
-Maricon Caluya
-Abegail Clemente
-Jannine Claire Celocia
+Maricon Caluya,
+Abegail Clemente,
+Jannine Claire Celocia,
 Rhynne Gracelle Pontanilla
 
-Developed as a Capstone Project May- November 2025 for the
+Developed as a Capstone Project May - November 2025 for the
 
 **Bachelor of Science in Information Technology**
 **Major in Network and Cybersecurity**
